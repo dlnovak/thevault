@@ -614,7 +614,8 @@ const SHARED_MOODS = [
 const ALL_GENRES = [...new Set(Object.values(FILMS).flatMap((f) => f.genres))].sort();
 
 // ═══════════════════════════════════════════════════════════════
-// Firebase-backed storage (replaces window.storage / localStorage)
+// Storage — works standalone on localStorage. If Firebase is
+// configured and the user is signed in, it also syncs to the cloud.
 // ═══════════════════════════════════════════════════════════════
 function seedData(film) {
   const stamp = (arr, cat) =>
@@ -631,19 +632,40 @@ function seedData(film) {
   };
 }
 
-// Load a film's data for the signed-in user; seed + save on first access.
+const LS_KEY = (uid, filmId) => `vault:${uid || "local"}:${filmId}`;
+const hasCloud = () => !!(window.VaultFirebase && window.VaultConfigError == null);
+
+function lsLoad(uid, filmId) {
+  try { const raw = localStorage.getItem(LS_KEY(uid, filmId)); return raw ? JSON.parse(raw) : null; }
+  catch { return null; }
+}
+function lsSave(uid, filmId, data) {
+  try { localStorage.setItem(LS_KEY(uid, filmId), JSON.stringify(data)); } catch (e) { console.error("local save failed", e); }
+}
+
+// Load a film's data. Prefer cloud when available, else localStorage;
+// seed + persist on first access either way.
 async function loadFilm(uid, film) {
-  try {
-    const existing = await window.VaultFirebase.loadFilm(uid, film.id);
-    if (existing) return existing;
-  } catch (e) { console.error("load failed", e); }
+  if (hasCloud() && uid) {
+    try {
+      const existing = await window.VaultFirebase.loadFilm(uid, film.id);
+      if (existing) { lsSave(uid, film.id, existing); return existing; }
+    } catch (e) { console.error("cloud load failed, falling back to local", e); }
+  }
+  const local = lsLoad(uid, film.id);
+  if (local) return local;
   const seeded = seedData(film);
-  try { await window.VaultFirebase.saveFilm(uid, film.id, seeded); } catch (e) { console.error("seed save failed", e); }
+  lsSave(uid, film.id, seeded);
+  if (hasCloud() && uid) {
+    try { await window.VaultFirebase.saveFilm(uid, film.id, seeded); } catch (e) { console.error("seed cloud save failed", e); }
+  }
   return seeded;
 }
 async function saveFilm(uid, id, data) {
-  try { await window.VaultFirebase.saveFilm(uid, id, data); }
-  catch (e) { console.error("save failed", e); }
+  lsSave(uid, id, data);
+  if (hasCloud() && uid) {
+    try { await window.VaultFirebase.saveFilm(uid, id, data); } catch (e) { console.error("cloud save failed", e); }
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1169,32 +1191,32 @@ function SignIn({ onSignIn, error }) {
 // Main app
 // ═══════════════════════════════════════════════════════════════
 function App() {
-  const [user, setUser] = useState(undefined); // undefined = checking, null = signed out
+  const [user, setUser] = useState(null);        // Firebase user, or null (guest)
   const [authError, setAuthError] = useState("");
   const [open, setOpen] = useState(null);
   const [genreFilter, setGenreFilter] = useState(null);
 
+  const cloudAvailable = hasCloud();
+
+  // If Firebase is configured, listen for auth changes. If not, we just run
+  // as a local guest — the app works fully either way.
   useEffect(() => {
+    if (!cloudAvailable) return;
     const unsub = window.VaultFirebase.onAuth((u) => setUser(u || null));
     return () => unsub && unsub();
-  }, []);
+  }, [cloudAvailable]);
 
   const doSignIn = () => {
     setAuthError("");
+    if (!cloudAvailable) return;
     window.VaultFirebase.signIn().catch((e) => setAuthError(e.message || "Sign-in failed."));
   };
 
-  if (user === undefined) {
-    return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
-        background: "#060608", color: "#6a6a78", fontFamily: "'Inter', sans-serif", gap: 10 }}>
-        <Loader size={18} color="#8a8a98" style={{ animation: "spin .9s linear infinite" }} /> Loading…
-      </div>
-    );
-  }
-  if (user === null) return <SignIn onSignIn={doSignIn} error={authError} />;
+  // uid drives which storage bucket we read/write. Signed-in users get their
+  // cloud/local data under their uid; everyone else shares the local "guest" bucket.
+  const uid = user ? user.uid : "guest";
 
-  if (open) return <FilmView film={FILMS[open]} uid={user.uid} onBack={() => setOpen(null)} />;
+  if (open) return <FilmView key={uid} film={FILMS[open]} uid={uid} onBack={() => setOpen(null)} />;
 
   const films = Object.values(FILMS).filter((f) => !genreFilter || f.genres.includes(genreFilter));
 
@@ -1207,13 +1229,24 @@ function App() {
           <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 12, letterSpacing: 4,
             textTransform: "uppercase", color: "#6a6a78" }}>Personal Cinema Ledger</div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-            {user.photoURL && <img src={user.photoURL} alt="" style={{ width: 26, height: 26, borderRadius: "50%" }} referrerPolicy="no-referrer" />}
-            <button onClick={() => window.VaultFirebase.signOut()}
-              style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "none",
-                border: "1px solid #2a2a32", color: "#8a8a98", borderRadius: 8, padding: "5px 11px",
-                cursor: "pointer", fontFamily: "'Inter', sans-serif", fontSize: 12.5 }}>
-              <LogOut size={13} /> Sign out
-            </button>
+            {user ? (
+              <>
+                {user.photoURL && <img src={user.photoURL} alt="" style={{ width: 26, height: 26, borderRadius: "50%" }} referrerPolicy="no-referrer" />}
+                <button onClick={() => window.VaultFirebase.signOut()}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "none",
+                    border: "1px solid #2a2a32", color: "#8a8a98", borderRadius: 8, padding: "5px 11px",
+                    cursor: "pointer", fontFamily: "'Inter', sans-serif", fontSize: 12.5 }}>
+                  <LogOut size={13} /> Sign out
+                </button>
+              </>
+            ) : cloudAvailable ? (
+              <button onClick={doSignIn}
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none",
+                  border: "1px solid #2a2a32", color: "#8a8a98", borderRadius: 8, padding: "5px 12px",
+                  cursor: "pointer", fontFamily: "'Inter', sans-serif", fontSize: 12.5 }}>
+                <LogIn size={13} /> Sign in to sync
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -1222,8 +1255,11 @@ function App() {
         <p style={{ fontFamily: "'Inter', sans-serif", color: "#8a8a98", fontSize: 15, margin: "0 0 26px",
           maxWidth: 480, lineHeight: 1.5 }}>
           Rate every character, scene, and mood, tag the patterns, and watch your taste take shape.
-          Each film comes pre-loaded with its real cast and key moments. Everything syncs to your account.
+          Each film comes pre-loaded with its real cast and key moments.
+          {cloudAvailable ? " Sign in to sync across devices." : ""}
         </p>
+        {authError && <p style={{ color: "#ff6b6b", fontFamily: "'Inter', sans-serif", fontSize: 13, margin: "-14px 0 20px" }}>{authError}</p>}
+
 
         <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 28 }}>
           <button onClick={() => setGenreFilter(null)}
@@ -1254,41 +1290,23 @@ function App() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// Boot — runs no matter whether Firebase or Babel finished first
+// Boot — render immediately. The app runs on localStorage and works
+// with no Firebase at all; if Firebase is configured it layers on sync.
 // ═══════════════════════════════════════════════════════════════
 function boot() {
   if (window.__vaultBooted) return;
   window.__vaultBooted = true;
-  const root = ReactDOM.createRoot(document.getElementById("root"));
-  if (window.VaultConfigError || !window.VaultFirebase) {
-    root.render(
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
-        background: "#060608", color: "#f0eef2", fontFamily: "'Inter', system-ui, sans-serif", padding: 30 }}>
-        <div style={{ maxWidth: 460, textAlign: "center" }}>
-          <div style={{ fontFamily: "'Oswald', sans-serif", fontSize: 40, fontWeight: 700, marginBottom: 14, letterSpacing: 0.5 }}>THE VAULT</div>
-          <div style={{ background: "#1a0f14", border: "1px solid #3d1f2b", borderRadius: 12, padding: "18px 20px",
-            color: "#ffb3c1", fontSize: 14, lineHeight: 1.6 }}>
-            {window.VaultConfigError || "Firebase bridge didn't load. Check your network and that the Firebase CDN scripts aren't blocked."}
-          </div>
-          <div style={{ color: "#6a6a78", fontSize: 12.5, marginTop: 16, lineHeight: 1.6 }}>
-            Once you paste your real Firebase config into <code style={{ color: "#8a8a98" }}>index.html</code> and reload, this screen goes away.
-          </div>
-        </div>
-      </div>
-    );
-    return;
-  }
-  root.render(<App />);
+  ReactDOM.createRoot(document.getElementById("root")).render(<App />);
 }
 
-// If Firebase already finished (flag set), boot now; otherwise wait for the event.
-// The setTimeout fallback covers the case where both scripts are already done.
-if (window.VaultReady) boot();
-else {
-  window.addEventListener("vault-firebase-ready", boot, { once: true });
-  // Safety net: if the event was somehow missed, boot after a short delay.
-  setTimeout(() => { if (window.VaultReady && !window.__vaultBooted) boot(); }, 1500);
-}
+// Boot as soon as this script has parsed. Don't wait on Firebase —
+// if it's still loading or unconfigured, the app just runs locally and
+// picks up cloud sync once (if) Firebase becomes ready.
+boot();
+window.addEventListener("vault-firebase-ready", () => {
+  // Firebase finished after first render; nothing to do — the auth
+  // listener in <App> will pick up the session. (No-op kept for clarity.)
+});
 </script>
 </body>
 </html>
