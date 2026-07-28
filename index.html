@@ -17,7 +17,6 @@
   ::-webkit-scrollbar-thumb:hover { background: #3a3a48; }
   input:focus, textarea:focus, button:focus-visible { outline: none; }
   button { font-family: inherit; }
-  .spin { animation: spin 0.9s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .fadein { animation: fadein .3s ease; }
   @keyframes fadein { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
@@ -26,621 +25,1377 @@
 <body>
 <div id="root"></div>
 
-<!-- React (production UMD) -->
-<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<!-- Babel to transpile the inline JSX -->
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<!-- React only — no Babel, no in-browser transpiling. The app below is
+     already compiled to plain JavaScript, so it runs immediately. -->
+<script crossorigin src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
+<script crossorigin src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
 
-<!-- Firebase (modular, via CDN) is imported inside the module script below -->
-
+<!-- OPTIONAL: Firebase sync. Leave the config as-is to run purely local
+     (browser storage). Fill it in later to sync across devices. This is a
+     module so it loads separately; the app does NOT wait on it. -->
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import {
-    getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
-  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import {
-    getFirestore, doc, getDoc, setDoc
-  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-  // ─────────────────────────────────────────────────────────────
-  // 1) PASTE YOUR FIREBASE CONFIG HERE
-  //    Firebase Console → Project settings → General → Your apps → Web app
-  //    (These keys are safe to expose publicly; access is controlled by
-  //     Firestore security rules, not by hiding the config.)
-  // ─────────────────────────────────────────────────────────────
-  const firebaseConfig = {
-    apiKey: "PASTE_API_KEY",
-    authDomain: "PASTE_PROJECT.firebaseapp.com",
-    projectId: "PASTE_PROJECT_ID",
-    storageBucket: "PASTE_PROJECT.appspot.com",
-    messagingSenderId: "PASTE_SENDER_ID",
-    appId: "PASTE_APP_ID",
-  };
-
   try {
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db = getFirestore(app);
-  const provider = new GoogleAuthProvider();
+    const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
+    const { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } =
+      await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
+    const { getFirestore, doc, getDoc, setDoc } =
+      await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
 
-  // Expose a tiny bridge for the React app (which runs via Babel below).
-  // All Firestore access goes through this object.
-  window.VaultFirebase = {
-    auth,
-    signIn: () => signInWithPopup(auth, provider),
-    signOut: () => signOut(auth),
-    onAuth: (cb) => onAuthStateChanged(auth, cb),
-    // Per-user, per-film document: users/{uid}/films/{filmId}
-    loadFilm: async (uid, filmId) => {
-      const ref = doc(db, "users", uid, "films", filmId);
-      const snap = await getDoc(ref);
-      return snap.exists() ? snap.data() : null;
-    },
-    saveFilm: async (uid, filmId, data) => {
-      const ref = doc(db, "users", uid, "films", filmId);
-      await setDoc(ref, data, { merge: true });
-    },
-  };
+    // ─── PASTE YOUR FIREBASE CONFIG HERE (later) ───
+    const firebaseConfig = {
+      apiKey: "PASTE_API_KEY",
+      authDomain: "PASTE_PROJECT.firebaseapp.com",
+      projectId: "PASTE_PROJECT_ID",
+      storageBucket: "PASTE_PROJECT.appspot.com",
+      messagingSenderId: "PASTE_SENDER_ID",
+      appId: "PASTE_APP_ID",
+    };
 
-  // Warn (visibly) if the config still has placeholder values.
-  if (String(firebaseConfig.apiKey).startsWith("PASTE_")) {
-    window.VaultConfigError = "Firebase isn't configured yet. Paste your firebaseConfig values into index.html (replace the PASTE_… placeholders).";
+    if (String(firebaseConfig.apiKey).startsWith("PASTE_")) {
+      // Not configured yet — app runs locally. Nothing to wire up.
+      console.info("Firebase not configured; running on local storage.");
+    } else {
+      const app = initializeApp(firebaseConfig);
+      const auth = getAuth(app);
+      const db = getFirestore(app);
+      const provider = new GoogleAuthProvider();
+      window.VaultFirebase = {
+        signIn: () => signInWithPopup(auth, provider),
+        signOut: () => signOut(auth),
+        onAuth: (cb) => onAuthStateChanged(auth, cb),
+        loadFilm: async (uid, filmId) => {
+          const snap = await getDoc(doc(db, "users", uid, "films", filmId));
+          return snap.exists() ? snap.data() : null;
+        },
+        saveFilm: async (uid, filmId, data) => {
+          await setDoc(doc(db, "users", uid, "films", filmId), data, { merge: true });
+        },
+      };
+      window.dispatchEvent(new Event("vault-firebase-ready"));
+    }
+  } catch (err) {
+    console.error("Firebase optional layer failed; app still runs locally.", err);
   }
-
-  // Mark ready with a flag AND an event, so the app boots no matter which
-  // script finishes first (avoids a race between this module and Babel).
-  window.VaultReady = true;
-  window.dispatchEvent(new Event("vault-firebase-ready"));
-} catch (err) {
-  console.error("Firebase init failed:", err);
-  window.VaultReady = true;
-  window.VaultConfigError = "Firebase failed to initialize: " + (err && err.message ? err.message : err);
-  window.dispatchEvent(new Event("vault-firebase-ready"));
-}
 </script>
 
-<script type="text/babel" data-presets="react">
-const { useState, useEffect, useCallback, useMemo, useRef } = React;
+<!-- The app (pre-compiled from JSX to plain JS) -->
+<script>
+function startVault() {
+const {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef
+} = React;
 
 // ═══════════════════════════════════════════════════════════════
 // Inline SVG icons (replaces lucide-react for a no-dependency build)
 // ═══════════════════════════════════════════════════════════════
-const Ico = (paths, extra = {}) => ({ size = 18, fill = "none", color = "currentColor", strokeWidth = 2, style }) =>
-  <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke={color}
-    strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" style={style} {...extra}>
-    {paths}
-  </svg>;
-
-const Star = Ico(<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />);
-const Plus = Ico(<><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></>);
-const Film = Ico(<><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></>);
-const User = Ico(<><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>);
-const Clapperboard = Ico(<><path d="M20.2 6 3 11l-.9-2.4c-.3-1.1.3-2.2 1.3-2.5l13.5-4c1.1-.3 2.2.3 2.5 1.3Z"/><path d="m6.2 5.3 3.1 3.9"/><path d="m12.4 3.4 3.1 4"/><path d="M3 11h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></>);
-const Wind = Ico(<><path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/><path d="M9.6 4.6A2 2 0 1 1 11 8H2"/><path d="M12.6 19.4A2 2 0 1 0 14 16H2"/></>);
-const Trash2 = Ico(<><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></>);
-const ChevronLeft = Ico(<polyline points="15 18 9 12 15 6" />);
-const X = Ico(<><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>);
-const BarChart3 = Ico(<><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></>);
-const Tag = Ico(<><path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/><line x1="7" y1="7" x2="7.01" y2="7"/></>);
-const Search = Ico(<><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></>);
-const Award = Ico(<><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></>);
-const Heart = Ico(<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />);
-const LogIn = Ico(<><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></>);
-const LogOut = Ico(<><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></>);
-const Loader = Ico(<><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></>);
-const Cloud = Ico(<path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" />);
-
+const Ico = (paths, extra = {}) => ({
+  size = 18,
+  fill = "none",
+  color = "currentColor",
+  strokeWidth = 2,
+  style
+}) => /*#__PURE__*/React.createElement("svg", {
+  width: size,
+  height: size,
+  viewBox: "0 0 24 24",
+  fill: fill,
+  stroke: color,
+  strokeWidth: strokeWidth,
+  strokeLinecap: "round",
+  strokeLinejoin: "round",
+  style: style,
+  ...extra
+}, paths);
+const Star = Ico(/*#__PURE__*/React.createElement("polygon", {
+  points: "12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"
+}));
+const Plus = Ico(/*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("line", {
+  x1: "12",
+  y1: "5",
+  x2: "12",
+  y2: "19"
+}), /*#__PURE__*/React.createElement("line", {
+  x1: "5",
+  y1: "12",
+  x2: "19",
+  y2: "12"
+})));
+const Film = Ico(/*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("rect", {
+  x: "2",
+  y: "2",
+  width: "20",
+  height: "20",
+  rx: "2.18",
+  ry: "2.18"
+}), /*#__PURE__*/React.createElement("line", {
+  x1: "7",
+  y1: "2",
+  x2: "7",
+  y2: "22"
+}), /*#__PURE__*/React.createElement("line", {
+  x1: "17",
+  y1: "2",
+  x2: "17",
+  y2: "22"
+}), /*#__PURE__*/React.createElement("line", {
+  x1: "2",
+  y1: "12",
+  x2: "22",
+  y2: "12"
+}), /*#__PURE__*/React.createElement("line", {
+  x1: "2",
+  y1: "7",
+  x2: "7",
+  y2: "7"
+}), /*#__PURE__*/React.createElement("line", {
+  x1: "2",
+  y1: "17",
+  x2: "7",
+  y2: "17"
+}), /*#__PURE__*/React.createElement("line", {
+  x1: "17",
+  y1: "17",
+  x2: "22",
+  y2: "17"
+}), /*#__PURE__*/React.createElement("line", {
+  x1: "17",
+  y1: "7",
+  x2: "22",
+  y2: "7"
+})));
+const User = Ico(/*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("path", {
+  d: "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"
+}), /*#__PURE__*/React.createElement("circle", {
+  cx: "12",
+  cy: "7",
+  r: "4"
+})));
+const Clapperboard = Ico(/*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("path", {
+  d: "M20.2 6 3 11l-.9-2.4c-.3-1.1.3-2.2 1.3-2.5l13.5-4c1.1-.3 2.2.3 2.5 1.3Z"
+}), /*#__PURE__*/React.createElement("path", {
+  d: "m6.2 5.3 3.1 3.9"
+}), /*#__PURE__*/React.createElement("path", {
+  d: "m12.4 3.4 3.1 4"
+}), /*#__PURE__*/React.createElement("path", {
+  d: "M3 11h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"
+})));
+const Wind = Ico(/*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("path", {
+  d: "M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"
+}), /*#__PURE__*/React.createElement("path", {
+  d: "M9.6 4.6A2 2 0 1 1 11 8H2"
+}), /*#__PURE__*/React.createElement("path", {
+  d: "M12.6 19.4A2 2 0 1 0 14 16H2"
+})));
+const Trash2 = Ico(/*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("polyline", {
+  points: "3 6 5 6 21 6"
+}), /*#__PURE__*/React.createElement("path", {
+  d: "M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+}), /*#__PURE__*/React.createElement("line", {
+  x1: "10",
+  y1: "11",
+  x2: "10",
+  y2: "17"
+}), /*#__PURE__*/React.createElement("line", {
+  x1: "14",
+  y1: "11",
+  x2: "14",
+  y2: "17"
+})));
+const ChevronLeft = Ico(/*#__PURE__*/React.createElement("polyline", {
+  points: "15 18 9 12 15 6"
+}));
+const X = Ico(/*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("line", {
+  x1: "18",
+  y1: "6",
+  x2: "6",
+  y2: "18"
+}), /*#__PURE__*/React.createElement("line", {
+  x1: "6",
+  y1: "6",
+  x2: "18",
+  y2: "18"
+})));
+const BarChart3 = Ico(/*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("path", {
+  d: "M3 3v18h18"
+}), /*#__PURE__*/React.createElement("path", {
+  d: "M18 17V9"
+}), /*#__PURE__*/React.createElement("path", {
+  d: "M13 17V5"
+}), /*#__PURE__*/React.createElement("path", {
+  d: "M8 17v-3"
+})));
+const Tag = Ico(/*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("path", {
+  d: "M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"
+}), /*#__PURE__*/React.createElement("line", {
+  x1: "7",
+  y1: "7",
+  x2: "7.01",
+  y2: "7"
+})));
+const Search = Ico(/*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("circle", {
+  cx: "11",
+  cy: "11",
+  r: "8"
+}), /*#__PURE__*/React.createElement("line", {
+  x1: "21",
+  y1: "21",
+  x2: "16.65",
+  y2: "16.65"
+})));
+const Award = Ico(/*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("circle", {
+  cx: "12",
+  cy: "8",
+  r: "6"
+}), /*#__PURE__*/React.createElement("path", {
+  d: "M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"
+})));
+const Heart = Ico(/*#__PURE__*/React.createElement("path", {
+  d: "M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"
+}));
+const LogIn = Ico(/*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("path", {
+  d: "M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"
+}), /*#__PURE__*/React.createElement("polyline", {
+  points: "10 17 15 12 10 7"
+}), /*#__PURE__*/React.createElement("line", {
+  x1: "15",
+  y1: "12",
+  x2: "3",
+  y2: "12"
+})));
+const LogOut = Ico(/*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("path", {
+  d: "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"
+}), /*#__PURE__*/React.createElement("polyline", {
+  points: "16 17 21 12 16 7"
+}), /*#__PURE__*/React.createElement("line", {
+  x1: "21",
+  y1: "12",
+  x2: "9",
+  y2: "12"
+})));
+const Loader = Ico(/*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("line", {
+  x1: "12",
+  y1: "2",
+  x2: "12",
+  y2: "6"
+}), /*#__PURE__*/React.createElement("line", {
+  x1: "12",
+  y1: "18",
+  x2: "12",
+  y2: "22"
+}), /*#__PURE__*/React.createElement("line", {
+  x1: "4.93",
+  y1: "4.93",
+  x2: "7.76",
+  y2: "7.76"
+}), /*#__PURE__*/React.createElement("line", {
+  x1: "16.24",
+  y1: "16.24",
+  x2: "19.07",
+  y2: "19.07"
+}), /*#__PURE__*/React.createElement("line", {
+  x1: "2",
+  y1: "12",
+  x2: "6",
+  y2: "12"
+}), /*#__PURE__*/React.createElement("line", {
+  x1: "18",
+  y1: "12",
+  x2: "22",
+  y2: "12"
+}), /*#__PURE__*/React.createElement("line", {
+  x1: "4.93",
+  y1: "19.07",
+  x2: "7.76",
+  y2: "16.24"
+}), /*#__PURE__*/React.createElement("line", {
+  x1: "16.24",
+  y1: "7.76",
+  x2: "19.07",
+  y2: "4.93"
+})));
+const Cloud = Ico(/*#__PURE__*/React.createElement("path", {
+  d: "M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"
+}));
 const FILMS = {
   roadhouse: {
-    id: "roadhouse", title: "Road House", year: 1989,
+    id: "roadhouse",
+    title: "Road House",
+    year: 1989,
     tagline: "The dance floor is a battlefield.",
     genres: ["Action", "Thriller", "Cult"],
-    synopsis:
-      "A philosophy-educated cooler named Dalton is hired to clean up the Double Deuce, the rowdiest bar in Missouri, and finds himself at war with a corrupt local kingpin who owns the whole town.",
+    synopsis: "A philosophy-educated cooler named Dalton is hired to clean up the Double Deuce, the rowdiest bar in Missouri, and finds himself at war with a corrupt local kingpin who owns the whole town.",
     theme: {
-      bg: "#0a0608", panel: "#1a0f14", panelBorder: "#3d1f2b",
-      ink: "#f3e4d8", sub: "#a97e83", accent: "#ff2d55", accent2: "#00e0d0",
+      bg: "#0a0608",
+      panel: "#1a0f14",
+      panelBorder: "#3d1f2b",
+      ink: "#f3e4d8",
+      sub: "#a97e83",
+      accent: "#ff2d55",
+      accent2: "#00e0d0",
       glow: "0 0 24px rgba(255,45,85,0.45)",
-      display: "'Oswald', 'Arial Narrow', sans-serif", body: "'Inter', system-ui, sans-serif",
-      texture: "radial-gradient(circle at 20% 10%, rgba(255,45,85,0.12), transparent 45%), radial-gradient(circle at 85% 80%, rgba(0,224,208,0.10), transparent 40%)",
+      display: "'Oswald', 'Arial Narrow', sans-serif",
+      body: "'Inter', system-ui, sans-serif",
+      texture: "radial-gradient(circle at 20% 10%, rgba(255,45,85,0.12), transparent 45%), radial-gradient(circle at 85% 80%, rgba(0,224,208,0.10), transparent 40%)"
     },
     upper: true,
     seed: {
-      characters: [
-        { name: "James Dalton", note: "Patrick Swayze — the zen 'cooler' with a philosophy degree and a haunted past" },
-        { name: "Wade Garrett", note: "Sam Elliott — Dalton's aging mentor and best friend, the best in the business" },
-        { name: "Dr. Elizabeth 'Doc' Clay", note: "Kelly Lynch — the ER doctor and love interest, also pursued by Wesley" },
-        { name: "Brad Wesley", note: "Ben Gazzara — the crime lord who owns the town of Jasper through fear" },
-        { name: "Jimmy Reno", note: "Marshall Teague — Wesley's vicious top henchman ('I used to f— guys like you in prison')" },
-        { name: "Frank Tilghman", note: "Kevin Tighe — the owner who hires Dalton to clean up the Double Deuce" },
-        { name: "Wade 'Red' Webster", note: "Red West — Elizabeth's uncle, auto shop owner ground down by Wesley" },
-        { name: "Emmett", note: "Sunshine Parker — the folksy farmer who rents Dalton the barn" },
-        { name: "Cody", note: "Jeff Healey — the blind blues guitarist fronting the house band" },
-        { name: "Pat McGurn", note: "John Doe — Wesley's bartender nephew, fired by Dalton" },
-        { name: "Morgan", note: "Terry Funk — the unhinged bouncer Dalton fires early on" },
-        { name: "Denise", note: "Julie Michaels — Wesley's girlfriend who takes an interest in Dalton" },
-        { name: "Steve", note: "The bouncer caught having sex on the job — 'You're too stupid to have a good time'" },
-      ],
-      scenes: [
-        { name: "New York cold open", note: "Dalton coolly handles a knifing at a NYC club before Tilghman recruits him" },
-        { name: "The three rules speech", note: "'Be nice... until it's time to not be nice' — Dalton's philosophy of the door" },
-        { name: "Firing the staff", note: "Dalton cleans house at the Double Deuce, cutting the thieves and dealers" },
-        { name: "\"Pain don't hurt\"", note: "Dalton refuses anesthetic and staples his own knife wound; meets Doc" },
-        { name: "The barn and the horses", note: "Dalton rents Emmett's loft across the lake from Wesley's mansion" },
-        { name: "Tai chi at dawn", note: "Dalton's shirtless morning ritual by the water, watched by Wesley" },
-        { name: "Wesley's dinner offer", note: "The crime lord tries to buy Dalton; Dalton walks away" },
-        { name: "The liquor blockade", note: "Wesley cuts off the bar's alcohol supply to squeeze Tilghman" },
-        { name: "Wade Garrett arrives", note: "Dalton's mentor rolls into town to back him up" },
-        { name: "Monster truck rampage", note: "Wesley's men flatten Red's auto dealership with a monster truck" },
-        { name: "Red's store burns", note: "Arson escalates Wesley's war on the town's holdouts" },
-        { name: "The big bar brawl", note: "Jimmy instigates a full-scale fight; Wesley calls it off with a smirk" },
-        { name: "Emmett's house explodes", note: "Wesley blows up the barn; Dalton's rage boils over" },
-        { name: "Throat rip fight", note: "The brutal riverside duel with Jimmy — Dalton tears out his throat" },
-        { name: "The coin toss", note: "Wesley phones in a threat: heads Elizabeth, tails Wade" },
-        { name: "'It was Tails'", note: "Dalton finds Wade stabbed dead at the bar — the gut-punch turn" },
-        { name: "Storming the mansion", note: "Dalton wipes out Wesley's henchmen but won't finish him" },
-        { name: "The townsfolk end it", note: "Red, Emmett and the locals shotgun Wesley; 'nobody saw nothin''" },
-      ],
-    },
+      characters: [{
+        name: "James Dalton",
+        note: "Patrick Swayze — the zen 'cooler' with a philosophy degree and a haunted past"
+      }, {
+        name: "Wade Garrett",
+        note: "Sam Elliott — Dalton's aging mentor and best friend, the best in the business"
+      }, {
+        name: "Dr. Elizabeth 'Doc' Clay",
+        note: "Kelly Lynch — the ER doctor and love interest, also pursued by Wesley"
+      }, {
+        name: "Brad Wesley",
+        note: "Ben Gazzara — the crime lord who owns the town of Jasper through fear"
+      }, {
+        name: "Jimmy Reno",
+        note: "Marshall Teague — Wesley's vicious top henchman ('I used to f— guys like you in prison')"
+      }, {
+        name: "Frank Tilghman",
+        note: "Kevin Tighe — the owner who hires Dalton to clean up the Double Deuce"
+      }, {
+        name: "Wade 'Red' Webster",
+        note: "Red West — Elizabeth's uncle, auto shop owner ground down by Wesley"
+      }, {
+        name: "Emmett",
+        note: "Sunshine Parker — the folksy farmer who rents Dalton the barn"
+      }, {
+        name: "Cody",
+        note: "Jeff Healey — the blind blues guitarist fronting the house band"
+      }, {
+        name: "Pat McGurn",
+        note: "John Doe — Wesley's bartender nephew, fired by Dalton"
+      }, {
+        name: "Morgan",
+        note: "Terry Funk — the unhinged bouncer Dalton fires early on"
+      }, {
+        name: "Denise",
+        note: "Julie Michaels — Wesley's girlfriend who takes an interest in Dalton"
+      }, {
+        name: "Steve",
+        note: "The bouncer caught having sex on the job — 'You're too stupid to have a good time'"
+      }],
+      scenes: [{
+        name: "New York cold open",
+        note: "Dalton coolly handles a knifing at a NYC club before Tilghman recruits him"
+      }, {
+        name: "The three rules speech",
+        note: "'Be nice... until it's time to not be nice' — Dalton's philosophy of the door"
+      }, {
+        name: "Firing the staff",
+        note: "Dalton cleans house at the Double Deuce, cutting the thieves and dealers"
+      }, {
+        name: "\"Pain don't hurt\"",
+        note: "Dalton refuses anesthetic and staples his own knife wound; meets Doc"
+      }, {
+        name: "The barn and the horses",
+        note: "Dalton rents Emmett's loft across the lake from Wesley's mansion"
+      }, {
+        name: "Tai chi at dawn",
+        note: "Dalton's shirtless morning ritual by the water, watched by Wesley"
+      }, {
+        name: "Wesley's dinner offer",
+        note: "The crime lord tries to buy Dalton; Dalton walks away"
+      }, {
+        name: "The liquor blockade",
+        note: "Wesley cuts off the bar's alcohol supply to squeeze Tilghman"
+      }, {
+        name: "Wade Garrett arrives",
+        note: "Dalton's mentor rolls into town to back him up"
+      }, {
+        name: "Monster truck rampage",
+        note: "Wesley's men flatten Red's auto dealership with a monster truck"
+      }, {
+        name: "Red's store burns",
+        note: "Arson escalates Wesley's war on the town's holdouts"
+      }, {
+        name: "The big bar brawl",
+        note: "Jimmy instigates a full-scale fight; Wesley calls it off with a smirk"
+      }, {
+        name: "Emmett's house explodes",
+        note: "Wesley blows up the barn; Dalton's rage boils over"
+      }, {
+        name: "Throat rip fight",
+        note: "The brutal riverside duel with Jimmy — Dalton tears out his throat"
+      }, {
+        name: "The coin toss",
+        note: "Wesley phones in a threat: heads Elizabeth, tails Wade"
+      }, {
+        name: "'It was Tails'",
+        note: "Dalton finds Wade stabbed dead at the bar — the gut-punch turn"
+      }, {
+        name: "Storming the mansion",
+        note: "Dalton wipes out Wesley's henchmen but won't finish him"
+      }, {
+        name: "The townsfolk end it",
+        note: "Red, Emmett and the locals shotgun Wesley; 'nobody saw nothin''"
+      }]
+    }
   },
   karatekid: {
-    id: "karatekid", title: "The Karate Kid", year: 1984,
+    id: "karatekid",
+    title: "The Karate Kid",
+    year: 1984,
     tagline: "Wax on. Wax off.",
     genres: ["Drama", "Sports", "Coming-of-age"],
-    synopsis:
-      "New Jersey teen Daniel LaRusso moves to LA, becomes the target of a Cobra Kai bullying gang, and is taken under the wing of Mr. Miyagi — a humble handyman who is secretly a karate master.",
+    synopsis: "New Jersey teen Daniel LaRusso moves to LA, becomes the target of a Cobra Kai bullying gang, and is taken under the wing of Mr. Miyagi — a humble handyman who is secretly a karate master.",
     theme: {
-      bg: "#0d1410", panel: "#152019", panelBorder: "#2c4234",
-      ink: "#f4efe4", sub: "#9db89f", accent: "#e8b13d", accent2: "#c0392b",
+      bg: "#0d1410",
+      panel: "#152019",
+      panelBorder: "#2c4234",
+      ink: "#f4efe4",
+      sub: "#9db89f",
+      accent: "#e8b13d",
+      accent2: "#c0392b",
       glow: "0 0 22px rgba(232,177,61,0.4)",
-      display: "'Cinzel', Georgia, serif", body: "'Inter', system-ui, sans-serif",
-      texture: "radial-gradient(circle at 80% 15%, rgba(232,177,61,0.14), transparent 45%), radial-gradient(circle at 10% 90%, rgba(192,57,43,0.10), transparent 40%)",
+      display: "'Cinzel', Georgia, serif",
+      body: "'Inter', system-ui, sans-serif",
+      texture: "radial-gradient(circle at 80% 15%, rgba(232,177,61,0.14), transparent 45%), radial-gradient(circle at 10% 90%, rgba(192,57,43,0.10), transparent 40%)"
     },
     upper: false,
     seed: {
-      characters: [
-        { name: "Daniel LaRusso", note: "Ralph Macchio — the New Jersey transplant and underdog" },
-        { name: "Mr. Miyagi", note: "Pat Morita — humble handyman, secret karate master (Oscar-nominated)" },
-        { name: "Johnny Lawrence", note: "William Zabka — Cobra Kai's golden-boy bully, Ali's ex" },
-        { name: "Ali Mills", note: "Elisabeth Shue — the cheerleader Daniel falls for" },
-        { name: "John Kreese", note: "Martin Kove — the ruthless 'no mercy' Cobra Kai sensei and Vietnam vet" },
-        { name: "Lucille LaRusso", note: "Randee Heller — Daniel's warm, striving single mother" },
-        { name: "Freddy Fernandez", note: "Israel Juarbe — Daniel's first friend at the new apartment" },
-        { name: "Dutch", note: "Chad McQueen — the meanest of Johnny's Cobra Kai crew" },
-        { name: "Bobby", note: "Ron Thomas — the Cobra Kai with a conscience, ordered to injure Daniel" },
-        { name: "Tommy", note: "Rob Garrison — Cobra Kai member ('Get him a body bag! Yeah!')" },
-        { name: "Kreese's referee", note: "Pat E. Johnson — the tournament referee (and real fight choreographer)" },
-      ],
-      scenes: [
-        { name: "New kid in Reseda", note: "Daniel and Lucille arrive from Newark to a rough LA welcome" },
-        { name: "Beach party punch", note: "Johnny humiliates Daniel in front of Ali at the beach" },
-        { name: "The soccer-field beating", note: "The Cobra Kai gang corners and thrashes Daniel" },
-        { name: "Halloween chase", note: "After the hose prank, the gang chases Daniel — Miyagi steps in" },
-        { name: "Miyagi vs. five Cobras", note: "The handyman single-handedly dismantles the whole gang" },
-        { name: "Confronting the dojo", note: "Miyagi and Daniel meet Kreese; the tournament challenge is set" },
-        { name: "Wax on, wax off", note: "Chores that are secretly muscle memory — the training reveal" },
-        { name: "Sand the floor / paint the fence", note: "Miyagi's method clicks when Daniel blocks his strikes" },
-        { name: "Drunk on the anniversary", note: "Daniel finds Miyagi grieving his wife, lost in the internment camp" },
-        { name: "The bonsai lesson", note: "'Close eye. Trust.' — balance, focus, and picture-in-mind" },
-        { name: "Miyagi's birthday gift", note: "The 1948 yellow car — and the reveal of the karate gi" },
-        { name: "Crane on the beach", note: "Daniel practices the crane stance in the surf at sunset" },
-        { name: "The tournament begins", note: "Daniel shocks the crowd by advancing round after round" },
-        { name: "The illegal leg sweep", note: "Kreese orders Bobby to cripple Daniel's knee" },
-        { name: "Miyagi's healing hands", note: "The backstage cure that gets Daniel back on his feet" },
-        { name: "The crane kick", note: "One leg, one chance — Daniel lands the winning blow on Johnny" },
-        { name: "'You're the best around'", note: "Johnny hands Daniel the trophy; the crowd erupts" },
-      ],
-    },
+      characters: [{
+        name: "Daniel LaRusso",
+        note: "Ralph Macchio — the New Jersey transplant and underdog"
+      }, {
+        name: "Mr. Miyagi",
+        note: "Pat Morita — humble handyman, secret karate master (Oscar-nominated)"
+      }, {
+        name: "Johnny Lawrence",
+        note: "William Zabka — Cobra Kai's golden-boy bully, Ali's ex"
+      }, {
+        name: "Ali Mills",
+        note: "Elisabeth Shue — the cheerleader Daniel falls for"
+      }, {
+        name: "John Kreese",
+        note: "Martin Kove — the ruthless 'no mercy' Cobra Kai sensei and Vietnam vet"
+      }, {
+        name: "Lucille LaRusso",
+        note: "Randee Heller — Daniel's warm, striving single mother"
+      }, {
+        name: "Freddy Fernandez",
+        note: "Israel Juarbe — Daniel's first friend at the new apartment"
+      }, {
+        name: "Dutch",
+        note: "Chad McQueen — the meanest of Johnny's Cobra Kai crew"
+      }, {
+        name: "Bobby",
+        note: "Ron Thomas — the Cobra Kai with a conscience, ordered to injure Daniel"
+      }, {
+        name: "Tommy",
+        note: "Rob Garrison — Cobra Kai member ('Get him a body bag! Yeah!')"
+      }, {
+        name: "Kreese's referee",
+        note: "Pat E. Johnson — the tournament referee (and real fight choreographer)"
+      }],
+      scenes: [{
+        name: "New kid in Reseda",
+        note: "Daniel and Lucille arrive from Newark to a rough LA welcome"
+      }, {
+        name: "Beach party punch",
+        note: "Johnny humiliates Daniel in front of Ali at the beach"
+      }, {
+        name: "The soccer-field beating",
+        note: "The Cobra Kai gang corners and thrashes Daniel"
+      }, {
+        name: "Halloween chase",
+        note: "After the hose prank, the gang chases Daniel — Miyagi steps in"
+      }, {
+        name: "Miyagi vs. five Cobras",
+        note: "The handyman single-handedly dismantles the whole gang"
+      }, {
+        name: "Confronting the dojo",
+        note: "Miyagi and Daniel meet Kreese; the tournament challenge is set"
+      }, {
+        name: "Wax on, wax off",
+        note: "Chores that are secretly muscle memory — the training reveal"
+      }, {
+        name: "Sand the floor / paint the fence",
+        note: "Miyagi's method clicks when Daniel blocks his strikes"
+      }, {
+        name: "Drunk on the anniversary",
+        note: "Daniel finds Miyagi grieving his wife, lost in the internment camp"
+      }, {
+        name: "The bonsai lesson",
+        note: "'Close eye. Trust.' — balance, focus, and picture-in-mind"
+      }, {
+        name: "Miyagi's birthday gift",
+        note: "The 1948 yellow car — and the reveal of the karate gi"
+      }, {
+        name: "Crane on the beach",
+        note: "Daniel practices the crane stance in the surf at sunset"
+      }, {
+        name: "The tournament begins",
+        note: "Daniel shocks the crowd by advancing round after round"
+      }, {
+        name: "The illegal leg sweep",
+        note: "Kreese orders Bobby to cripple Daniel's knee"
+      }, {
+        name: "Miyagi's healing hands",
+        note: "The backstage cure that gets Daniel back on his feet"
+      }, {
+        name: "The crane kick",
+        note: "One leg, one chance — Daniel lands the winning blow on Johnny"
+      }, {
+        name: "'You're the best around'",
+        note: "Johnny hands Daniel the trophy; the crowd erupts"
+      }]
+    }
   },
   returntooz: {
-    id: "returntooz", title: "Return to Oz", year: 1985,
+    id: "returntooz",
+    title: "Return to Oz",
+    year: 1985,
     tagline: "Not the Oz you remember.",
     genres: ["Fantasy", "Adventure", "Dark"],
-    synopsis:
-      "Six months after the tornado, a troubled Dorothy is sent back to a ruined Oz where the Emerald City lies in stone, the head-collecting witch Mombi rules, and the Nome King has conquered the land.",
+    synopsis: "Six months after the tornado, a troubled Dorothy is sent back to a ruined Oz where the Emerald City lies in stone, the head-collecting witch Mombi rules, and the Nome King has conquered the land.",
     theme: {
-      bg: "#0a0a12", panel: "#141327", panelBorder: "#2e2a52",
-      ink: "#e9e4f5", sub: "#9a92c4", accent: "#8b6fd6", accent2: "#4ecb8f",
+      bg: "#0a0a12",
+      panel: "#141327",
+      panelBorder: "#2e2a52",
+      ink: "#e9e4f5",
+      sub: "#9a92c4",
+      accent: "#8b6fd6",
+      accent2: "#4ecb8f",
       glow: "0 0 26px rgba(139,111,214,0.5)",
-      display: "'Cormorant Garamond', Georgia, serif", body: "'Inter', system-ui, sans-serif",
-      texture: "radial-gradient(circle at 30% 20%, rgba(139,111,214,0.16), transparent 50%), radial-gradient(circle at 90% 85%, rgba(78,203,143,0.09), transparent 45%)",
+      display: "'Cormorant Garamond', Georgia, serif",
+      body: "'Inter', system-ui, sans-serif",
+      texture: "radial-gradient(circle at 30% 20%, rgba(139,111,214,0.16), transparent 50%), radial-gradient(circle at 90% 85%, rgba(78,203,143,0.09), transparent 45%)"
     },
     upper: false,
     seed: {
-      characters: [
-        { name: "Dorothy Gale", note: "Fairuza Balk — older, wearier, pulled back to a ruined Oz" },
-        { name: "Tik-Tok", note: "The copper clockwork 'Royal Army of Oz'; must be wound to think, speak, act" },
-        { name: "Jack Pumpkinhead", note: "Gangly and sweet, brought to life by the Powder; calls Dorothy 'Mom'" },
-        { name: "Princess Mombi", note: "Jean Marsh — the vain witch with a gallery of interchangeable heads" },
-        { name: "The Nome King", note: "Nicol Williamson — claymation monarch who conquered Oz for its emeralds" },
-        { name: "Billina", note: "The tart-tongued talking hen and Dorothy's companion" },
-        { name: "Dr. Worley", note: "Nicol Williamson — the asylum doctor (the Nome King's real-world double)" },
-        { name: "Nurse Wilson", note: "Jean Marsh — Worley's cold nurse (Mombi's real-world double)" },
-        { name: "The Gump", note: "A flying sofa assembled from a mounted moose-like head and couches" },
-        { name: "Ozma", note: "Emma Ridley — the rightful princess of Oz, trapped in a mirror" },
-        { name: "The Lead Wheeler", note: "Pons Maar — the cackling captain of the wheeled henchmen" },
-        { name: "Aunt Em", note: "Piper Laurie — Dorothy's worried guardian back in Kansas" },
-        { name: "Uncle Henry", note: "Matt Clark — the practical Kansas farmer" },
-        { name: "The mysterious girl", note: "The glowing figure who frees Dorothy from the asylum" },
-      ],
-      scenes: [
-        { name: "Sleepless in Kansas", note: "Dorothy can't stop talking about Oz; Em and Henry worry" },
-        { name: "The asylum", note: "Dorothy is committed to Dr. Worley's clinic for 'electrical' treatment" },
-        { name: "Escape in the storm", note: "The mysterious girl frees her; they flee into a flood" },
-        { name: "Washed back to Oz", note: "Dorothy wakes on a floating chicken coop with Billina, back in Oz" },
-        { name: "The ruined Yellow Brick Road", note: "She finds Oz shattered and the road broken apart" },
-        { name: "Beware the Wheelers", note: "The graffiti warning — then the screeching Wheelers attack" },
-        { name: "Winding up Tik-Tok", note: "Dorothy discovers the clockwork soldier in a hidden chamber" },
-        { name: "Tik-Tok routs the Wheelers", note: "The mechanical army makes short work of the henchmen" },
-        { name: "Mombi's palace", note: "The mirrored golden boudoir where the witch reigns alone" },
-        { name: "The Hall of Heads", note: "The cabinets of living stolen heads wake and scream" },
-        { name: "Stealing the Powder of Life", note: "Dorothy takes the key and the magic powder from Mombi" },
-        { name: "Building Jack Pumpkinhead", note: "The gangly figure comes to life and adopts Dorothy as 'Mom'" },
-        { name: "Assembling the Gump", note: "They lash together the flying sofa to escape the tower" },
-        { name: "Flight to the Nome King", note: "The Gump soars across Oz toward the mountain" },
-        { name: "The ornament room game", note: "Guess the right green trinket or be turned into one forever" },
-        { name: "The Nome King crumbles", note: "Billina's egg is poison to Nomes — the king dissolves" },
-        { name: "Freeing Ozma", note: "Dorothy releases the true princess from the mirror; Oz is restored" },
-        { name: "Home again", note: "Dorothy returns to Kansas with Ozma watching over her" },
-      ],
-    },
+      characters: [{
+        name: "Dorothy Gale",
+        note: "Fairuza Balk — older, wearier, pulled back to a ruined Oz"
+      }, {
+        name: "Tik-Tok",
+        note: "The copper clockwork 'Royal Army of Oz'; must be wound to think, speak, act"
+      }, {
+        name: "Jack Pumpkinhead",
+        note: "Gangly and sweet, brought to life by the Powder; calls Dorothy 'Mom'"
+      }, {
+        name: "Princess Mombi",
+        note: "Jean Marsh — the vain witch with a gallery of interchangeable heads"
+      }, {
+        name: "The Nome King",
+        note: "Nicol Williamson — claymation monarch who conquered Oz for its emeralds"
+      }, {
+        name: "Billina",
+        note: "The tart-tongued talking hen and Dorothy's companion"
+      }, {
+        name: "Dr. Worley",
+        note: "Nicol Williamson — the asylum doctor (the Nome King's real-world double)"
+      }, {
+        name: "Nurse Wilson",
+        note: "Jean Marsh — Worley's cold nurse (Mombi's real-world double)"
+      }, {
+        name: "The Gump",
+        note: "A flying sofa assembled from a mounted moose-like head and couches"
+      }, {
+        name: "Ozma",
+        note: "Emma Ridley — the rightful princess of Oz, trapped in a mirror"
+      }, {
+        name: "The Lead Wheeler",
+        note: "Pons Maar — the cackling captain of the wheeled henchmen"
+      }, {
+        name: "Aunt Em",
+        note: "Piper Laurie — Dorothy's worried guardian back in Kansas"
+      }, {
+        name: "Uncle Henry",
+        note: "Matt Clark — the practical Kansas farmer"
+      }, {
+        name: "The mysterious girl",
+        note: "The glowing figure who frees Dorothy from the asylum"
+      }],
+      scenes: [{
+        name: "Sleepless in Kansas",
+        note: "Dorothy can't stop talking about Oz; Em and Henry worry"
+      }, {
+        name: "The asylum",
+        note: "Dorothy is committed to Dr. Worley's clinic for 'electrical' treatment"
+      }, {
+        name: "Escape in the storm",
+        note: "The mysterious girl frees her; they flee into a flood"
+      }, {
+        name: "Washed back to Oz",
+        note: "Dorothy wakes on a floating chicken coop with Billina, back in Oz"
+      }, {
+        name: "The ruined Yellow Brick Road",
+        note: "She finds Oz shattered and the road broken apart"
+      }, {
+        name: "Beware the Wheelers",
+        note: "The graffiti warning — then the screeching Wheelers attack"
+      }, {
+        name: "Winding up Tik-Tok",
+        note: "Dorothy discovers the clockwork soldier in a hidden chamber"
+      }, {
+        name: "Tik-Tok routs the Wheelers",
+        note: "The mechanical army makes short work of the henchmen"
+      }, {
+        name: "Mombi's palace",
+        note: "The mirrored golden boudoir where the witch reigns alone"
+      }, {
+        name: "The Hall of Heads",
+        note: "The cabinets of living stolen heads wake and scream"
+      }, {
+        name: "Stealing the Powder of Life",
+        note: "Dorothy takes the key and the magic powder from Mombi"
+      }, {
+        name: "Building Jack Pumpkinhead",
+        note: "The gangly figure comes to life and adopts Dorothy as 'Mom'"
+      }, {
+        name: "Assembling the Gump",
+        note: "They lash together the flying sofa to escape the tower"
+      }, {
+        name: "Flight to the Nome King",
+        note: "The Gump soars across Oz toward the mountain"
+      }, {
+        name: "The ornament room game",
+        note: "Guess the right green trinket or be turned into one forever"
+      }, {
+        name: "The Nome King crumbles",
+        note: "Billina's egg is poison to Nomes — the king dissolves"
+      }, {
+        name: "Freeing Ozma",
+        note: "Dorothy releases the true princess from the mirror; Oz is restored"
+      }, {
+        name: "Home again",
+        note: "Dorothy returns to Kansas with Ozma watching over her"
+      }]
+    }
   },
   topgun: {
-    id: "topgun", title: "Top Gun", year: 1986,
+    id: "topgun",
+    title: "Top Gun",
+    year: 1986,
     tagline: "I feel the need — the need for speed.",
     genres: ["Action", "Drama", "Romance"],
-    synopsis:
-      "Hotshot Navy pilot Maverick is sent to the elite Top Gun fighter school, where his recklessness collides with rival Iceman, a romance with instructor Charlie ignites, and tragedy tests his nerve.",
+    synopsis: "Hotshot Navy pilot Maverick is sent to the elite Top Gun fighter school, where his recklessness collides with rival Iceman, a romance with instructor Charlie ignites, and tragedy tests his nerve.",
     theme: {
-      bg: "#080a0f", panel: "#0f1620", panelBorder: "#1f3346",
-      ink: "#eaf1f8", sub: "#7d97ad", accent: "#ff8a1e", accent2: "#2ea6ff",
+      bg: "#080a0f",
+      panel: "#0f1620",
+      panelBorder: "#1f3346",
+      ink: "#eaf1f8",
+      sub: "#7d97ad",
+      accent: "#ff8a1e",
+      accent2: "#2ea6ff",
       glow: "0 0 24px rgba(255,138,30,0.45)",
-      display: "'Oswald', 'Arial Narrow', sans-serif", body: "'Inter', system-ui, sans-serif",
-      texture: "linear-gradient(180deg, rgba(46,166,255,0.08), transparent 30%), radial-gradient(circle at 75% 90%, rgba(255,138,30,0.14), transparent 45%)",
+      display: "'Oswald', 'Arial Narrow', sans-serif",
+      body: "'Inter', system-ui, sans-serif",
+      texture: "linear-gradient(180deg, rgba(46,166,255,0.08), transparent 30%), radial-gradient(circle at 75% 90%, rgba(255,138,30,0.14), transparent 45%)"
     },
     upper: true,
     seed: {
-      characters: [
-        { name: "Pete 'Maverick' Mitchell", note: "Tom Cruise — the gifted, reckless F-14 pilot chasing his father's ghost" },
-        { name: "Nick 'Goose' Bradshaw", note: "Anthony Edwards — Maverick's RIO, steadying presence and heart of the film" },
-        { name: "Tom 'Iceman' Kazansky", note: "Val Kilmer — the cool, disciplined rival ('You can be my wingman anytime')" },
-        { name: "Charlie Blackwood", note: "Kelly McGillis — the astrophysicist civilian instructor and love interest" },
-        { name: "Viper", note: "Tom Skerritt — the wise commanding officer who knew Maverick's father" },
-        { name: "Jester", note: "Michael Ironside — the tough instructor Maverick keeps beating" },
-        { name: "Slider", note: "Rick Rossovich — Iceman's smug RIO" },
-        { name: "Stinger", note: "James Tolkan — Maverick and Goose's exasperated CO" },
-        { name: "Carole", note: "Meg Ryan — Goose's warm, devoted wife" },
-        { name: "Cougar", note: "John Stockwell — the shaken pilot who hands in his wings early on" },
-        { name: "Merlin", note: "Tim Robbins — the RIO who flies with Maverick after Goose" },
-        { name: "Hollywood", note: "Whip Hubley — one of the Top Gun class hotshots" },
-        { name: "Wolfman", note: "Barry Tubb — Hollywood's RIO" },
-        { name: "Sundown", note: "Clarence Gilyard Jr. — Maverick's RIO on the final mission" },
-      ],
-      scenes: [
-        { name: "Cold open over the ocean", note: "Maverick and Cougar face down MiGs; Maverick's inverted 'hello'" },
-        { name: "Cougar hands in his wings", note: "Maverick talks him down, then loses him to nerves" },
-        { name: "\"You've Lost That Lovin' Feelin'\"", note: "Maverick serenades Charlie in the bar" },
-        { name: "Arrival at Top Gun", note: "The class meets, and the rivalry with Iceman ignites" },
-        { name: "Charlie in the classroom", note: "The instructor turns out to be the woman from the bar" },
-        { name: "'The need for speed'", note: "Maverick and Goose's high-five creed before a flight" },
-        { name: "First dogfight lesson", note: "Maverick breaks the hard deck to win — and gets chewed out" },
-        { name: "Beach volleyball", note: "The sun-drenched, slow-motion shirtless match" },
-        { name: "Elevator with Charlie", note: "The romance turns; the tension finally breaks" },
-        { name: "'Great balls of fire'", note: "Goose at the piano with Carole and their son" },
-        { name: "Inverted over the MiG", note: "Maverick flips canopy-to-canopy and snaps a Polaroid" },
-        { name: "The flat spin", note: "Jet wash flames both engines; the F-14 spins out of control" },
-        { name: "Goose's death", note: "Ejection into the canopy — the tragedy that guts Maverick" },
-        { name: "The inquiry", note: "Cleared of fault, but Maverick's confidence is shattered" },
-        { name: "Charlie leaves", note: "She heads for a job in Washington as Maverick withdraws" },
-        { name: "Viper's revelation", note: "Viper tells Maverick the truth about his father's heroism" },
-        { name: "Graduation and scramble", note: "The class is deployed mid-celebration to a real crisis" },
-        { name: "The final dogfight", note: "Maverick re-engages, saves Iceman, downs the MiGs" },
-        { name: "'You can be my wingman'", note: "Iceman and Maverick's mutual-respect embrace" },
-        { name: "Dog tags in the sea", note: "Maverick drops Goose's tags into the ocean" },
-        { name: "Reunion at the bar", note: "Charlie returns; 'Lovin' Feelin'' plays them out" },
-      ],
-    },
+      characters: [{
+        name: "Pete 'Maverick' Mitchell",
+        note: "Tom Cruise — the gifted, reckless F-14 pilot chasing his father's ghost"
+      }, {
+        name: "Nick 'Goose' Bradshaw",
+        note: "Anthony Edwards — Maverick's RIO, steadying presence and heart of the film"
+      }, {
+        name: "Tom 'Iceman' Kazansky",
+        note: "Val Kilmer — the cool, disciplined rival ('You can be my wingman anytime')"
+      }, {
+        name: "Charlie Blackwood",
+        note: "Kelly McGillis — the astrophysicist civilian instructor and love interest"
+      }, {
+        name: "Viper",
+        note: "Tom Skerritt — the wise commanding officer who knew Maverick's father"
+      }, {
+        name: "Jester",
+        note: "Michael Ironside — the tough instructor Maverick keeps beating"
+      }, {
+        name: "Slider",
+        note: "Rick Rossovich — Iceman's smug RIO"
+      }, {
+        name: "Stinger",
+        note: "James Tolkan — Maverick and Goose's exasperated CO"
+      }, {
+        name: "Carole",
+        note: "Meg Ryan — Goose's warm, devoted wife"
+      }, {
+        name: "Cougar",
+        note: "John Stockwell — the shaken pilot who hands in his wings early on"
+      }, {
+        name: "Merlin",
+        note: "Tim Robbins — the RIO who flies with Maverick after Goose"
+      }, {
+        name: "Hollywood",
+        note: "Whip Hubley — one of the Top Gun class hotshots"
+      }, {
+        name: "Wolfman",
+        note: "Barry Tubb — Hollywood's RIO"
+      }, {
+        name: "Sundown",
+        note: "Clarence Gilyard Jr. — Maverick's RIO on the final mission"
+      }],
+      scenes: [{
+        name: "Cold open over the ocean",
+        note: "Maverick and Cougar face down MiGs; Maverick's inverted 'hello'"
+      }, {
+        name: "Cougar hands in his wings",
+        note: "Maverick talks him down, then loses him to nerves"
+      }, {
+        name: "\"You've Lost That Lovin' Feelin'\"",
+        note: "Maverick serenades Charlie in the bar"
+      }, {
+        name: "Arrival at Top Gun",
+        note: "The class meets, and the rivalry with Iceman ignites"
+      }, {
+        name: "Charlie in the classroom",
+        note: "The instructor turns out to be the woman from the bar"
+      }, {
+        name: "'The need for speed'",
+        note: "Maverick and Goose's high-five creed before a flight"
+      }, {
+        name: "First dogfight lesson",
+        note: "Maverick breaks the hard deck to win — and gets chewed out"
+      }, {
+        name: "Beach volleyball",
+        note: "The sun-drenched, slow-motion shirtless match"
+      }, {
+        name: "Elevator with Charlie",
+        note: "The romance turns; the tension finally breaks"
+      }, {
+        name: "'Great balls of fire'",
+        note: "Goose at the piano with Carole and their son"
+      }, {
+        name: "Inverted over the MiG",
+        note: "Maverick flips canopy-to-canopy and snaps a Polaroid"
+      }, {
+        name: "The flat spin",
+        note: "Jet wash flames both engines; the F-14 spins out of control"
+      }, {
+        name: "Goose's death",
+        note: "Ejection into the canopy — the tragedy that guts Maverick"
+      }, {
+        name: "The inquiry",
+        note: "Cleared of fault, but Maverick's confidence is shattered"
+      }, {
+        name: "Charlie leaves",
+        note: "She heads for a job in Washington as Maverick withdraws"
+      }, {
+        name: "Viper's revelation",
+        note: "Viper tells Maverick the truth about his father's heroism"
+      }, {
+        name: "Graduation and scramble",
+        note: "The class is deployed mid-celebration to a real crisis"
+      }, {
+        name: "The final dogfight",
+        note: "Maverick re-engages, saves Iceman, downs the MiGs"
+      }, {
+        name: "'You can be my wingman'",
+        note: "Iceman and Maverick's mutual-respect embrace"
+      }, {
+        name: "Dog tags in the sea",
+        note: "Maverick drops Goose's tags into the ocean"
+      }, {
+        name: "Reunion at the bar",
+        note: "Charlie returns; 'Lovin' Feelin'' plays them out"
+      }]
+    }
   },
   flightnavigator: {
-    id: "flightnavigator", title: "Flight of the Navigator", year: 1986,
+    id: "flightnavigator",
+    title: "Flight of the Navigator",
+    year: 1986,
     tagline: "8 years. No memory. One wild ride home.",
     genres: ["Sci-Fi", "Adventure", "Family"],
-    synopsis:
-      "In 1978, 12-year-old David falls in the woods and wakes up eight years later — not having aged a day. NASA links him to a crashed alien craft piloted by a wisecracking robot named Max, and David sets out to find his way back to his own time.",
+    synopsis: "In 1978, 12-year-old David falls in the woods and wakes up eight years later — not having aged a day. NASA links him to a crashed alien craft piloted by a wisecracking robot named Max, and David sets out to find his way back to his own time.",
     theme: {
-      bg: "#070b12", panel: "#0e1826", panelBorder: "#1e3350",
-      ink: "#e6f0fb", sub: "#7d95b3", accent: "#3ad6e0", accent2: "#c9a2ff",
+      bg: "#070b12",
+      panel: "#0e1826",
+      panelBorder: "#1e3350",
+      ink: "#e6f0fb",
+      sub: "#7d95b3",
+      accent: "#3ad6e0",
+      accent2: "#c9a2ff",
       glow: "0 0 26px rgba(58,214,224,0.45)",
-      display: "'Oswald', 'Arial Narrow', sans-serif", body: "'Inter', system-ui, sans-serif",
-      texture: "radial-gradient(circle at 25% 15%, rgba(58,214,224,0.14), transparent 48%), radial-gradient(circle at 85% 90%, rgba(201,162,255,0.10), transparent 45%)",
+      display: "'Oswald', 'Arial Narrow', sans-serif",
+      body: "'Inter', system-ui, sans-serif",
+      texture: "radial-gradient(circle at 25% 15%, rgba(58,214,224,0.14), transparent 48%), radial-gradient(circle at 85% 90%, rgba(201,162,255,0.10), transparent 45%)"
     },
     upper: false,
     seed: {
-      characters: [
-        { name: "David Freeman", note: "Joey Cramer — the 12-year-old who lost eight years" },
-        { name: "Max", note: "Voiced by Paul Reubens — the wisecracking robot navigator ('Compliance!')" },
-        { name: "Helen Freeman", note: "Veronica Cartwright — David's loving, shaken mother" },
-        { name: "Bill Freeman", note: "Cliff De Young — David's determined father" },
-        { name: "Dr. Louis Faraday", note: "Howard Hesseman — the NASA scientist studying David" },
-        { name: "Carolyn McAdams", note: "Sarah Jessica Parker — the friendly NASA intern" },
-        { name: "Jeff Freeman", note: "Matt Adler — David's now-older little brother" },
-        { name: "Puckmaren", note: "The googly-eyed alien creature that stows away" },
-      ],
-      scenes: [
-        { name: "Fall in the woods", note: "David tumbles into a ravine searching for Jeff — and vanishes" },
-        { name: "Waking up in 1986", note: "He walks home to find strangers living in his house" },
-        { name: "The family reunion", note: "David reunites with a family that's aged eight years" },
-        { name: "The UFO discovery", note: "NASA hauls in a crashed silver craft nearby" },
-        { name: "Brain scan at the base", note: "Faraday's team finds star charts hidden in David's mind" },
-        { name: "Meeting Max", note: "The ship telepathically calls David aboard" },
-        { name: "The escape", note: "David and Max blast out of the NASA facility" },
-        { name: "Max lightens up", note: "The robot absorbs David's slang and personality" },
-        { name: "Buzzing the landscape", note: "The reflective ship skims water, streets, and skies" },
-        { name: "Picking up the creatures", note: "A cargo hold full of bizarre alien specimens" },
-        { name: "The choice to go back", note: "Risk vaporization for 1978, or stay a guinea pig" },
-        { name: "'See ya later, Navigator'", note: "Max sends David home through time" },
-      ],
-    },
+      characters: [{
+        name: "David Freeman",
+        note: "Joey Cramer — the 12-year-old who lost eight years"
+      }, {
+        name: "Max",
+        note: "Voiced by Paul Reubens — the wisecracking robot navigator ('Compliance!')"
+      }, {
+        name: "Helen Freeman",
+        note: "Veronica Cartwright — David's loving, shaken mother"
+      }, {
+        name: "Bill Freeman",
+        note: "Cliff De Young — David's determined father"
+      }, {
+        name: "Dr. Louis Faraday",
+        note: "Howard Hesseman — the NASA scientist studying David"
+      }, {
+        name: "Carolyn McAdams",
+        note: "Sarah Jessica Parker — the friendly NASA intern"
+      }, {
+        name: "Jeff Freeman",
+        note: "Matt Adler — David's now-older little brother"
+      }, {
+        name: "Puckmaren",
+        note: "The googly-eyed alien creature that stows away"
+      }],
+      scenes: [{
+        name: "Fall in the woods",
+        note: "David tumbles into a ravine searching for Jeff — and vanishes"
+      }, {
+        name: "Waking up in 1986",
+        note: "He walks home to find strangers living in his house"
+      }, {
+        name: "The family reunion",
+        note: "David reunites with a family that's aged eight years"
+      }, {
+        name: "The UFO discovery",
+        note: "NASA hauls in a crashed silver craft nearby"
+      }, {
+        name: "Brain scan at the base",
+        note: "Faraday's team finds star charts hidden in David's mind"
+      }, {
+        name: "Meeting Max",
+        note: "The ship telepathically calls David aboard"
+      }, {
+        name: "The escape",
+        note: "David and Max blast out of the NASA facility"
+      }, {
+        name: "Max lightens up",
+        note: "The robot absorbs David's slang and personality"
+      }, {
+        name: "Buzzing the landscape",
+        note: "The reflective ship skims water, streets, and skies"
+      }, {
+        name: "Picking up the creatures",
+        note: "A cargo hold full of bizarre alien specimens"
+      }, {
+        name: "The choice to go back",
+        note: "Risk vaporization for 1978, or stay a guinea pig"
+      }, {
+        name: "'See ya later, Navigator'",
+        note: "Max sends David home through time"
+      }]
+    }
   },
   comingtoamerica: {
-    id: "comingtoamerica", title: "Coming to America", year: 1988,
+    id: "comingtoamerica",
+    title: "Coming to America",
+    year: 1988,
     tagline: "He's in Queens looking for a queen.",
     genres: ["Comedy", "Romance", "Cult"],
-    synopsis:
-      "Akeem, the pampered prince of Zamunda, rejects an arranged marriage and travels to Queens, New York with his loyal friend Semmi to find a woman who'll love him for himself — disguised as a poor foreign student working at a fast-food joint.",
+    synopsis: "Akeem, the pampered prince of Zamunda, rejects an arranged marriage and travels to Queens, New York with his loyal friend Semmi to find a woman who'll love him for himself — disguised as a poor foreign student working at a fast-food joint.",
     theme: {
-      bg: "#100a04", panel: "#211609", panelBorder: "#453218",
-      ink: "#faf0dc", sub: "#c2a575", accent: "#f0b429", accent2: "#e0592a",
+      bg: "#100a04",
+      panel: "#211609",
+      panelBorder: "#453218",
+      ink: "#faf0dc",
+      sub: "#c2a575",
+      accent: "#f0b429",
+      accent2: "#e0592a",
       glow: "0 0 24px rgba(240,180,41,0.45)",
-      display: "'Cinzel', Georgia, serif", body: "'Inter', system-ui, sans-serif",
-      texture: "radial-gradient(circle at 80% 12%, rgba(240,180,41,0.16), transparent 46%), radial-gradient(circle at 12% 88%, rgba(224,89,42,0.11), transparent 44%)",
+      display: "'Cinzel', Georgia, serif",
+      body: "'Inter', system-ui, sans-serif",
+      texture: "radial-gradient(circle at 80% 12%, rgba(240,180,41,0.16), transparent 46%), radial-gradient(circle at 12% 88%, rgba(224,89,42,0.11), transparent 44%)"
     },
     upper: false,
     seed: {
-      characters: [
-        { name: "Prince Akeem", note: "Eddie Murphy — the earnest prince seeking true love (also Clarence, Saul, Randy Watson)" },
-        { name: "Semmi", note: "Arsenio Hall — Akeem's persnickety royal companion" },
-        { name: "Lisa McDowell", note: "Shari Headley — the woman Akeem falls for in Queens" },
-        { name: "Cleo McDowell", note: "John Amos — Lisa's father, the McDowell's owner" },
-        { name: "King Jaffe Joffer", note: "James Earl Jones — Akeem's imposing father" },
-        { name: "Queen Aoleon", note: "Madge Sinclair — Akeem's mother" },
-        { name: "Darryl Jenks", note: "Eriq La Salle — Lisa's pompous Soul Glo boyfriend" },
-        { name: "Patrice McDowell", note: "Allison Dean — Lisa's younger sister" },
-        { name: "The barbershop crew", note: "Murphy & Hall in old-age makeup as Clarence, Morris & the gang" },
-        { name: "Randy Watson", note: "Eddie Murphy — the Sexual Chocolate frontman" },
-        { name: "Hold-up man", note: "Samuel L. Jackson — robs McDowell's at gunpoint" },
-      ],
-      scenes: [
-        { name: "The royal bath", note: "Akeem's over-pampered morning in Zamunda" },
-        { name: "The arranged bride", note: "Akeem meets the woman trained to obey his every word" },
-        { name: "Arriving in Queens", note: "The prince picks the grimiest apartment to feel 'real'" },
-        { name: "Working at McDowell's", note: "Akeem and Semmi mop floors at the McDonald's knockoff" },
-        { name: "The barbershop debate", note: "The old-timers argue boxing under heavy makeup" },
-        { name: "Sexual Chocolate", note: "Randy Watson's band bombs at the pageant" },
-        { name: "'The royal penis is clean'", note: "The bathing-servants gag" },
-        { name: "Throwing away the cash", note: "Akeem tosses wads of money to a freezing couple" },
-        { name: "The date with Lisa", note: "Akeem wins her over as a humble goat-herder" },
-        { name: "The King arrives", note: "Jaffe and Aoleon show up and blow Akeem's cover" },
-        { name: "Lisa learns the truth", note: "The prince's identity is revealed at the worst moment" },
-        { name: "The wedding", note: "The Zamundan ceremony — and a familiar face on the throne" },
-      ],
-    },
+      characters: [{
+        name: "Prince Akeem",
+        note: "Eddie Murphy — the earnest prince seeking true love (also Clarence, Saul, Randy Watson)"
+      }, {
+        name: "Semmi",
+        note: "Arsenio Hall — Akeem's persnickety royal companion"
+      }, {
+        name: "Lisa McDowell",
+        note: "Shari Headley — the woman Akeem falls for in Queens"
+      }, {
+        name: "Cleo McDowell",
+        note: "John Amos — Lisa's father, the McDowell's owner"
+      }, {
+        name: "King Jaffe Joffer",
+        note: "James Earl Jones — Akeem's imposing father"
+      }, {
+        name: "Queen Aoleon",
+        note: "Madge Sinclair — Akeem's mother"
+      }, {
+        name: "Darryl Jenks",
+        note: "Eriq La Salle — Lisa's pompous Soul Glo boyfriend"
+      }, {
+        name: "Patrice McDowell",
+        note: "Allison Dean — Lisa's younger sister"
+      }, {
+        name: "The barbershop crew",
+        note: "Murphy & Hall in old-age makeup as Clarence, Morris & the gang"
+      }, {
+        name: "Randy Watson",
+        note: "Eddie Murphy — the Sexual Chocolate frontman"
+      }, {
+        name: "Hold-up man",
+        note: "Samuel L. Jackson — robs McDowell's at gunpoint"
+      }],
+      scenes: [{
+        name: "The royal bath",
+        note: "Akeem's over-pampered morning in Zamunda"
+      }, {
+        name: "The arranged bride",
+        note: "Akeem meets the woman trained to obey his every word"
+      }, {
+        name: "Arriving in Queens",
+        note: "The prince picks the grimiest apartment to feel 'real'"
+      }, {
+        name: "Working at McDowell's",
+        note: "Akeem and Semmi mop floors at the McDonald's knockoff"
+      }, {
+        name: "The barbershop debate",
+        note: "The old-timers argue boxing under heavy makeup"
+      }, {
+        name: "Sexual Chocolate",
+        note: "Randy Watson's band bombs at the pageant"
+      }, {
+        name: "'The royal penis is clean'",
+        note: "The bathing-servants gag"
+      }, {
+        name: "Throwing away the cash",
+        note: "Akeem tosses wads of money to a freezing couple"
+      }, {
+        name: "The date with Lisa",
+        note: "Akeem wins her over as a humble goat-herder"
+      }, {
+        name: "The King arrives",
+        note: "Jaffe and Aoleon show up and blow Akeem's cover"
+      }, {
+        name: "Lisa learns the truth",
+        note: "The prince's identity is revealed at the worst moment"
+      }, {
+        name: "The wedding",
+        note: "The Zamundan ceremony — and a familiar face on the throne"
+      }]
+    }
   },
   karatekid2: {
-    id: "karatekid2", title: "The Karate Kid Part II", year: 1986,
+    id: "karatekid2",
+    title: "The Karate Kid Part II",
+    year: 1986,
     tagline: "Living the answer.",
     genres: ["Drama", "Sports", "Coming-of-age"],
-    synopsis:
-      "Daniel accompanies Mr. Miyagi to his native Okinawa to visit his dying father, where Miyagi confronts his old rival Sato and a lost love, while Daniel falls for Kumiko and makes a vicious new enemy in Sato's nephew Chozen.",
+    synopsis: "Daniel accompanies Mr. Miyagi to his native Okinawa to visit his dying father, where Miyagi confronts his old rival Sato and a lost love, while Daniel falls for Kumiko and makes a vicious new enemy in Sato's nephew Chozen.",
     theme: {
-      bg: "#0c1212", panel: "#132020", panelBorder: "#264040",
-      ink: "#eef4f0", sub: "#94b3ac", accent: "#e0a53d", accent2: "#3fa9a0",
+      bg: "#0c1212",
+      panel: "#132020",
+      panelBorder: "#264040",
+      ink: "#eef4f0",
+      sub: "#94b3ac",
+      accent: "#e0a53d",
+      accent2: "#3fa9a0",
       glow: "0 0 22px rgba(224,165,61,0.4)",
-      display: "'Cinzel', Georgia, serif", body: "'Inter', system-ui, sans-serif",
-      texture: "radial-gradient(circle at 78% 16%, rgba(224,165,61,0.14), transparent 46%), radial-gradient(circle at 12% 88%, rgba(63,169,160,0.11), transparent 44%)",
+      display: "'Cinzel', Georgia, serif",
+      body: "'Inter', system-ui, sans-serif",
+      texture: "radial-gradient(circle at 78% 16%, rgba(224,165,61,0.14), transparent 46%), radial-gradient(circle at 12% 88%, rgba(63,169,160,0.11), transparent 44%)"
     },
     upper: false,
     seed: {
-      characters: [
-        { name: "Daniel LaRusso", note: "Ralph Macchio — now traveling far from the All-Valley" },
-        { name: "Mr. Miyagi", note: "Pat Morita — returning home to Okinawa after 40 years" },
-        { name: "Kumiko", note: "Tamlyn Tomita — the dancer Daniel falls in love with" },
-        { name: "Chozen Toguchi", note: "Yuji Okumoto — Sato's cruel nephew and Daniel's new rival" },
-        { name: "Sato", note: "Danny Kamekona — Miyagi's old best friend turned bitter rival" },
-        { name: "Yukie", note: "Nobu McCarthy — Miyagi's first love, who never married Sato" },
-        { name: "Toshio", note: "Joey Miyashima — one of Chozen's henchmen" },
-        { name: "Miyagi's father", note: "Charlie Tanimoto — the dying elder who summons them home" },
-      ],
-      scenes: [
-        { name: "The parking-lot prologue", note: "Miyagi humbles Kreese after the tournament" },
-        { name: "The letter from Okinawa", note: "News that Miyagi's father is dying" },
-        { name: "Arrival in Okinawa", note: "Chozen's sinister handshake greets Daniel at the airport" },
-        { name: "The drum technique", note: "Miyagi reveals the family's twisting block with a hand-drum" },
-        { name: "The tea ceremony", note: "Kumiko and Daniel share a quiet, tender moment" },
-        { name: "Rigged scales exposed", note: "Daniel catches Chozen cheating the villagers" },
-        { name: "The typhoon", note: "The storm devastates the village; a child is trapped" },
-        { name: "Breaking the ice blocks", note: "Sato bets his land Miyagi can't break six blocks" },
-        { name: "The village festival", note: "Kumiko's dance — until Chozen crashes it" },
-        { name: "Hostage at the O-bon", note: "Chozen takes Kumiko and demands a fight to the death" },
-        { name: "The final duel", note: "Daniel vs. Chozen as the drums pound 'live or die'" },
-        { name: "'Banzai, Daniel-san'", note: "The village honors Daniel; Chozen is spared and shamed" },
-      ],
-    },
+      characters: [{
+        name: "Daniel LaRusso",
+        note: "Ralph Macchio — now traveling far from the All-Valley"
+      }, {
+        name: "Mr. Miyagi",
+        note: "Pat Morita — returning home to Okinawa after 40 years"
+      }, {
+        name: "Kumiko",
+        note: "Tamlyn Tomita — the dancer Daniel falls in love with"
+      }, {
+        name: "Chozen Toguchi",
+        note: "Yuji Okumoto — Sato's cruel nephew and Daniel's new rival"
+      }, {
+        name: "Sato",
+        note: "Danny Kamekona — Miyagi's old best friend turned bitter rival"
+      }, {
+        name: "Yukie",
+        note: "Nobu McCarthy — Miyagi's first love, who never married Sato"
+      }, {
+        name: "Toshio",
+        note: "Joey Miyashima — one of Chozen's henchmen"
+      }, {
+        name: "Miyagi's father",
+        note: "Charlie Tanimoto — the dying elder who summons them home"
+      }],
+      scenes: [{
+        name: "The parking-lot prologue",
+        note: "Miyagi humbles Kreese after the tournament"
+      }, {
+        name: "The letter from Okinawa",
+        note: "News that Miyagi's father is dying"
+      }, {
+        name: "Arrival in Okinawa",
+        note: "Chozen's sinister handshake greets Daniel at the airport"
+      }, {
+        name: "The drum technique",
+        note: "Miyagi reveals the family's twisting block with a hand-drum"
+      }, {
+        name: "The tea ceremony",
+        note: "Kumiko and Daniel share a quiet, tender moment"
+      }, {
+        name: "Rigged scales exposed",
+        note: "Daniel catches Chozen cheating the villagers"
+      }, {
+        name: "The typhoon",
+        note: "The storm devastates the village; a child is trapped"
+      }, {
+        name: "Breaking the ice blocks",
+        note: "Sato bets his land Miyagi can't break six blocks"
+      }, {
+        name: "The village festival",
+        note: "Kumiko's dance — until Chozen crashes it"
+      }, {
+        name: "Hostage at the O-bon",
+        note: "Chozen takes Kumiko and demands a fight to the death"
+      }, {
+        name: "The final duel",
+        note: "Daniel vs. Chozen as the drums pound 'live or die'"
+      }, {
+        name: "'Banzai, Daniel-san'",
+        note: "The village honors Daniel; Chozen is spared and shamed"
+      }]
+    }
   },
   karatekid3: {
-    id: "karatekid3", title: "The Karate Kid Part III", year: 1989,
+    id: "karatekid3",
+    title: "The Karate Kid Part III",
+    year: 1989,
     tagline: "The past comes back to haunt Daniel.",
     genres: ["Drama", "Sports", "Cult"],
-    synopsis:
-      "A vengeful John Kreese and his wealthy, sadistic Vietnam buddy Terry Silver scheme to destroy Daniel by manipulating him away from Miyagi and into brutal Cobra Kai training — pushing him toward a title defense against 'Karate's Bad Boy,' Mike Barnes.",
+    synopsis: "A vengeful John Kreese and his wealthy, sadistic Vietnam buddy Terry Silver scheme to destroy Daniel by manipulating him away from Miyagi and into brutal Cobra Kai training — pushing him toward a title defense against 'Karate's Bad Boy,' Mike Barnes.",
     theme: {
-      bg: "#120c0c", panel: "#201414", panelBorder: "#3f2626",
-      ink: "#f4e9e6", sub: "#b58f8a", accent: "#d63f3f", accent2: "#e0a53d",
+      bg: "#120c0c",
+      panel: "#201414",
+      panelBorder: "#3f2626",
+      ink: "#f4e9e6",
+      sub: "#b58f8a",
+      accent: "#d63f3f",
+      accent2: "#e0a53d",
       glow: "0 0 24px rgba(214,63,63,0.45)",
-      display: "'Cinzel', Georgia, serif", body: "'Inter', system-ui, sans-serif",
-      texture: "radial-gradient(circle at 80% 14%, rgba(214,63,63,0.15), transparent 46%), radial-gradient(circle at 12% 88%, rgba(224,165,61,0.10), transparent 44%)",
+      display: "'Cinzel', Georgia, serif",
+      body: "'Inter', system-ui, sans-serif",
+      texture: "radial-gradient(circle at 80% 14%, rgba(214,63,63,0.15), transparent 46%), radial-gradient(circle at 12% 88%, rgba(224,165,61,0.10), transparent 44%)"
     },
     upper: false,
     seed: {
-      characters: [
-        { name: "Daniel LaRusso", note: "Ralph Macchio — pulled toward darkness by manipulation" },
-        { name: "Mr. Miyagi", note: "Pat Morita — refusing to train Daniel for revenge" },
-        { name: "Terry Silver", note: "Thomas Ian Griffith — the wealthy, sadistic mastermind" },
-        { name: "John Kreese", note: "Martin Kove — the disgraced Cobra Kai sensei seeking payback" },
-        { name: "Mike Barnes", note: "Sean Kanan — 'Karate's Bad Boy,' the hired champion" },
-        { name: "Jessica Andrews", note: "Robyn Lively — Daniel's friend and pottery-shop partner" },
-        { name: "Snake", note: "Jonathan Avildsen — one of Barnes's intimidating goons" },
-        { name: "Lucille LaRusso", note: "Randee Heller — Daniel's mother" },
-      ],
-      scenes: [
-        { name: "Kreese's downfall", note: "Broke and humiliated, Kreese turns to old friend Silver" },
-        { name: "Silver's revenge plan", note: "The ponytailed villain plots to break Daniel and Miyagi" },
-        { name: "The bonsai shop", note: "Daniel and Jessica open a struggling pottery business" },
-        { name: "Barnes's intimidation", note: "'Karate's Bad Boy' terrorizes Daniel into competing" },
-        { name: "Silver's false mentorship", note: "The con: posing as a sympathetic new teacher" },
-        { name: "Training in the secret dojo", note: "Silver drills Daniel into aggression and rage" },
-        { name: "Breaking the board", note: "Daniel bloodies his knuckles under Silver's cruelty" },
-        { name: "The nightclub setup", note: "Daniel is baited into a fight and shamed" },
-        { name: "Return to Miyagi", note: "Daniel realizes the deception and asks Miyagi to train him" },
-        { name: "Finding the kata", note: "Miyagi teaches focus through the choreographed form" },
-        { name: "The tournament ambush", note: "Barnes fouls Daniel repeatedly to inflict pain" },
-        { name: "The kata wins it", note: "Daniel centers himself and lands one clean point" },
-      ],
-    },
+      characters: [{
+        name: "Daniel LaRusso",
+        note: "Ralph Macchio — pulled toward darkness by manipulation"
+      }, {
+        name: "Mr. Miyagi",
+        note: "Pat Morita — refusing to train Daniel for revenge"
+      }, {
+        name: "Terry Silver",
+        note: "Thomas Ian Griffith — the wealthy, sadistic mastermind"
+      }, {
+        name: "John Kreese",
+        note: "Martin Kove — the disgraced Cobra Kai sensei seeking payback"
+      }, {
+        name: "Mike Barnes",
+        note: "Sean Kanan — 'Karate's Bad Boy,' the hired champion"
+      }, {
+        name: "Jessica Andrews",
+        note: "Robyn Lively — Daniel's friend and pottery-shop partner"
+      }, {
+        name: "Snake",
+        note: "Jonathan Avildsen — one of Barnes's intimidating goons"
+      }, {
+        name: "Lucille LaRusso",
+        note: "Randee Heller — Daniel's mother"
+      }],
+      scenes: [{
+        name: "Kreese's downfall",
+        note: "Broke and humiliated, Kreese turns to old friend Silver"
+      }, {
+        name: "Silver's revenge plan",
+        note: "The ponytailed villain plots to break Daniel and Miyagi"
+      }, {
+        name: "The bonsai shop",
+        note: "Daniel and Jessica open a struggling pottery business"
+      }, {
+        name: "Barnes's intimidation",
+        note: "'Karate's Bad Boy' terrorizes Daniel into competing"
+      }, {
+        name: "Silver's false mentorship",
+        note: "The con: posing as a sympathetic new teacher"
+      }, {
+        name: "Training in the secret dojo",
+        note: "Silver drills Daniel into aggression and rage"
+      }, {
+        name: "Breaking the board",
+        note: "Daniel bloodies his knuckles under Silver's cruelty"
+      }, {
+        name: "The nightclub setup",
+        note: "Daniel is baited into a fight and shamed"
+      }, {
+        name: "Return to Miyagi",
+        note: "Daniel realizes the deception and asks Miyagi to train him"
+      }, {
+        name: "Finding the kata",
+        note: "Miyagi teaches focus through the choreographed form"
+      }, {
+        name: "The tournament ambush",
+        note: "Barnes fouls Daniel repeatedly to inflict pain"
+      }, {
+        name: "The kata wins it",
+        note: "Daniel centers himself and lands one clean point"
+      }]
+    }
   },
   troopbeverlyhills: {
-    id: "troopbeverlyhills", title: "Troop Beverly Hills", year: 1989,
+    id: "troopbeverlyhills",
+    title: "Troop Beverly Hills",
+    year: 1989,
     tagline: "She's putting the wild back in wilderness.",
     genres: ["Comedy", "Family", "Cult"],
-    synopsis:
-      "Beverly Hills socialite Phyllis Nefler, in the middle of a divorce, takes over her daughter's floundering Wilderness Girls troop and — in her own designer-label way — turns the pampered girls into an unlikely success against a ruthless rival leader.",
+    synopsis: "Beverly Hills socialite Phyllis Nefler, in the middle of a divorce, takes over her daughter's floundering Wilderness Girls troop and — in her own designer-label way — turns the pampered girls into an unlikely success against a ruthless rival leader.",
     theme: {
-      bg: "#120810", panel: "#22111c", panelBorder: "#472138",
-      ink: "#fceaf4", sub: "#c48eae", accent: "#ff5fa2", accent2: "#ffd24a",
+      bg: "#120810",
+      panel: "#22111c",
+      panelBorder: "#472138",
+      ink: "#fceaf4",
+      sub: "#c48eae",
+      accent: "#ff5fa2",
+      accent2: "#ffd24a",
       glow: "0 0 24px rgba(255,95,162,0.45)",
-      display: "'Oswald', 'Arial Narrow', sans-serif", body: "'Inter', system-ui, sans-serif",
-      texture: "radial-gradient(circle at 22% 14%, rgba(255,95,162,0.16), transparent 48%), radial-gradient(circle at 86% 88%, rgba(255,210,74,0.12), transparent 44%)",
+      display: "'Oswald', 'Arial Narrow', sans-serif",
+      body: "'Inter', system-ui, sans-serif",
+      texture: "radial-gradient(circle at 22% 14%, rgba(255,95,162,0.16), transparent 48%), radial-gradient(circle at 86% 88%, rgba(255,210,74,0.12), transparent 44%)"
     },
     upper: false,
     seed: {
-      characters: [
-        { name: "Phyllis Nefler", note: "Shelley Long — the socialite turned unlikely den mother" },
-        { name: "Freddy Nefler", note: "Craig T. Nelson — Phyllis's muffler-magnate estranged husband" },
-        { name: "Velda Plendor", note: "Betty Thomas — the ruthless rival Wilderness Girls leader" },
-        { name: "Annie Herman", note: "Mary Gross — Velda's assistant who defects to Phyllis" },
-        { name: "Hannah Nefler", note: "Jenny Lewis — Phyllis's daughter, a gifted gymnast" },
-        { name: "Chica Barnfell", note: "Carla Gugino — one of the troop girls" },
-        { name: "Emily Coleman", note: "Kellie Martin — one of the troop girls" },
-        { name: "Tessa DiBlasio", note: "Heather Hopper — the streetwise troop member" },
-        { name: "Lisa", note: "Karen Kopins — Freddy's younger fiancée" },
-      ],
-      scenes: [
-        { name: "The pool-party dunk", note: "Phyllis tosses a drink and falls in the pool at her own party" },
-        { name: "Taking over the troop", note: "The socialite volunteers to lead the Wilderness Girls" },
-        { name: "The rainy first campout", note: "Camping 'Beverly Hills style' ends in a downpour retreat" },
-        { name: "Patches their way", note: "Fashion, jewelry appraisal, and dance earn unofficial badges" },
-        { name: "The Beverly Hills Hotel 'wilderness'", note: "Roughing it means room service and robes" },
-        { name: "Cookie-selling blitz", note: "The girls use Rodeo Drive connections to smash sales targets" },
-        { name: "Velda's sabotage", note: "The rival leader steals territory and schemes against them" },
-        { name: "Freddy's doubts", note: "Phyllis fights to prove she can follow through" },
-        { name: "The Jamboree", note: "The troop faces off against Velda's ringers" },
-        { name: "Carrying Velda to the finish", note: "The girls help their injured rival across the line" },
-        { name: "Blue Light Special", note: "Disgraced Velda ends up hawking cookies at Kmart" },
-        { name: "Reconciliation", note: "Phyllis's transformation wins Freddy back" },
-      ],
-    },
+      characters: [{
+        name: "Phyllis Nefler",
+        note: "Shelley Long — the socialite turned unlikely den mother"
+      }, {
+        name: "Freddy Nefler",
+        note: "Craig T. Nelson — Phyllis's muffler-magnate estranged husband"
+      }, {
+        name: "Velda Plendor",
+        note: "Betty Thomas — the ruthless rival Wilderness Girls leader"
+      }, {
+        name: "Annie Herman",
+        note: "Mary Gross — Velda's assistant who defects to Phyllis"
+      }, {
+        name: "Hannah Nefler",
+        note: "Jenny Lewis — Phyllis's daughter, a gifted gymnast"
+      }, {
+        name: "Chica Barnfell",
+        note: "Carla Gugino — one of the troop girls"
+      }, {
+        name: "Emily Coleman",
+        note: "Kellie Martin — one of the troop girls"
+      }, {
+        name: "Tessa DiBlasio",
+        note: "Heather Hopper — the streetwise troop member"
+      }, {
+        name: "Lisa",
+        note: "Karen Kopins — Freddy's younger fiancée"
+      }],
+      scenes: [{
+        name: "The pool-party dunk",
+        note: "Phyllis tosses a drink and falls in the pool at her own party"
+      }, {
+        name: "Taking over the troop",
+        note: "The socialite volunteers to lead the Wilderness Girls"
+      }, {
+        name: "The rainy first campout",
+        note: "Camping 'Beverly Hills style' ends in a downpour retreat"
+      }, {
+        name: "Patches their way",
+        note: "Fashion, jewelry appraisal, and dance earn unofficial badges"
+      }, {
+        name: "The Beverly Hills Hotel 'wilderness'",
+        note: "Roughing it means room service and robes"
+      }, {
+        name: "Cookie-selling blitz",
+        note: "The girls use Rodeo Drive connections to smash sales targets"
+      }, {
+        name: "Velda's sabotage",
+        note: "The rival leader steals territory and schemes against them"
+      }, {
+        name: "Freddy's doubts",
+        note: "Phyllis fights to prove she can follow through"
+      }, {
+        name: "The Jamboree",
+        note: "The troop faces off against Velda's ringers"
+      }, {
+        name: "Carrying Velda to the finish",
+        note: "The girls help their injured rival across the line"
+      }, {
+        name: "Blue Light Special",
+        note: "Disgraced Velda ends up hawking cookies at Kmart"
+      }, {
+        name: "Reconciliation",
+        note: "Phyllis's transformation wins Freddy back"
+      }]
+    }
   },
   adventuresbabysitting: {
-    id: "adventuresbabysitting", title: "Adventures in Babysitting", year: 1987,
+    id: "adventuresbabysitting",
+    title: "Adventures in Babysitting",
+    year: 1987,
     tagline: "Don't even think about it.",
     genres: ["Comedy", "Adventure", "Coming-of-age"],
-    synopsis:
-      "When her date cancels, suburban teen Chris Parker takes a babysitting job — then a frantic call from a stranded friend drags her and three kids into a wild, dangerous, hilarious all-night odyssey through downtown Chicago.",
+    synopsis: "When her date cancels, suburban teen Chris Parker takes a babysitting job — then a frantic call from a stranded friend drags her and three kids into a wild, dangerous, hilarious all-night odyssey through downtown Chicago.",
     theme: {
-      bg: "#080b14", panel: "#101728", panelBorder: "#233150",
-      ink: "#e8eefb", sub: "#8497bd", accent: "#ff6b4a", accent2: "#4ac6ff",
+      bg: "#080b14",
+      panel: "#101728",
+      panelBorder: "#233150",
+      ink: "#e8eefb",
+      sub: "#8497bd",
+      accent: "#ff6b4a",
+      accent2: "#4ac6ff",
       glow: "0 0 24px rgba(255,107,74,0.45)",
-      display: "'Oswald', 'Arial Narrow', sans-serif", body: "'Inter', system-ui, sans-serif",
-      texture: "linear-gradient(180deg, rgba(74,198,255,0.08), transparent 30%), radial-gradient(circle at 78% 88%, rgba(255,107,74,0.14), transparent 46%)",
+      display: "'Oswald', 'Arial Narrow', sans-serif",
+      body: "'Inter', system-ui, sans-serif",
+      texture: "linear-gradient(180deg, rgba(74,198,255,0.08), transparent 30%), radial-gradient(circle at 78% 88%, rgba(255,107,74,0.14), transparent 46%)"
     },
     upper: false,
     seed: {
-      characters: [
-        { name: "Chris Parker", note: "Elisabeth Shue — the babysitter in over her head" },
-        { name: "Brad Anderson", note: "Keith Coogan — the 15-year-old with a crush on Chris" },
-        { name: "Sara Anderson", note: "Maia Brewton — the Thor-obsessed 8-year-old" },
-        { name: "Daryl Coopersmith", note: "Anthony Rapp — Brad's wisecracking friend" },
-        { name: "Brenda", note: "Penelope Ann Miller — the stranded friend who starts it all" },
-        { name: "'Handsome' John Pruitt", note: "John Ford Noonan — the hook-handed tow truck driver" },
-        { name: "Joe Gipp", note: "Calvin Levels — the reluctant car thief who helps them" },
-        { name: "Dawson / 'Thor'", note: "Vincent D'Onofrio — the mechanic who looks like Sara's hero" },
-        { name: "Dan Lynch", note: "George Newbern — the college kid Chris warms to" },
-        { name: "Mike Todwell", note: "Bradley Whitford — Chris's cheating boyfriend" },
-      ],
-      scenes: [
-        { name: "The cancelled date", note: "Chris dances to 'Then He Kissed Me' — before Mike bails" },
-        { name: "Taking the job", note: "A dull night in with the Anderson kids... supposedly" },
-        { name: "Brenda's distress call", note: "Stranded at a downtown bus station, broke and scared" },
-        { name: "The flat tire", note: "No spare, stranded on the freeway with three kids" },
-        { name: "The tow-truck shootout", note: "Pruitt's CB call about his cheating wife turns violent" },
-        { name: "Hijacked in the Cadillac", note: "The kids climb into a car being stolen by Joe Gipp" },
-        { name: "The chop shop", note: "A stolen Playboy with a secret inside spells trouble" },
-        { name: "'Nobody leaves without singing the blues'", note: "The gang improvises the Babysitting Blues on stage" },
-        { name: "Sara on the girder", note: "The rooftop rescue with Thor watching over" },
-        { name: "The frat house", note: "Brenda's misadventures and a rat mistaken for a kitten" },
-        { name: "Racing the parents home", note: "The frantic dash to beat the Andersons back" },
-        { name: "Retirement can wait", note: "Dan shows up — and Chris agrees to one more sitting job" },
-      ],
-    },
-  },
+      characters: [{
+        name: "Chris Parker",
+        note: "Elisabeth Shue — the babysitter in over her head"
+      }, {
+        name: "Brad Anderson",
+        note: "Keith Coogan — the 15-year-old with a crush on Chris"
+      }, {
+        name: "Sara Anderson",
+        note: "Maia Brewton — the Thor-obsessed 8-year-old"
+      }, {
+        name: "Daryl Coopersmith",
+        note: "Anthony Rapp — Brad's wisecracking friend"
+      }, {
+        name: "Brenda",
+        note: "Penelope Ann Miller — the stranded friend who starts it all"
+      }, {
+        name: "'Handsome' John Pruitt",
+        note: "John Ford Noonan — the hook-handed tow truck driver"
+      }, {
+        name: "Joe Gipp",
+        note: "Calvin Levels — the reluctant car thief who helps them"
+      }, {
+        name: "Dawson / 'Thor'",
+        note: "Vincent D'Onofrio — the mechanic who looks like Sara's hero"
+      }, {
+        name: "Dan Lynch",
+        note: "George Newbern — the college kid Chris warms to"
+      }, {
+        name: "Mike Todwell",
+        note: "Bradley Whitford — Chris's cheating boyfriend"
+      }],
+      scenes: [{
+        name: "The cancelled date",
+        note: "Chris dances to 'Then He Kissed Me' — before Mike bails"
+      }, {
+        name: "Taking the job",
+        note: "A dull night in with the Anderson kids... supposedly"
+      }, {
+        name: "Brenda's distress call",
+        note: "Stranded at a downtown bus station, broke and scared"
+      }, {
+        name: "The flat tire",
+        note: "No spare, stranded on the freeway with three kids"
+      }, {
+        name: "The tow-truck shootout",
+        note: "Pruitt's CB call about his cheating wife turns violent"
+      }, {
+        name: "Hijacked in the Cadillac",
+        note: "The kids climb into a car being stolen by Joe Gipp"
+      }, {
+        name: "The chop shop",
+        note: "A stolen Playboy with a secret inside spells trouble"
+      }, {
+        name: "'Nobody leaves without singing the blues'",
+        note: "The gang improvises the Babysitting Blues on stage"
+      }, {
+        name: "Sara on the girder",
+        note: "The rooftop rescue with Thor watching over"
+      }, {
+        name: "The frat house",
+        note: "Brenda's misadventures and a rat mistaken for a kitten"
+      }, {
+        name: "Racing the parents home",
+        note: "The frantic dash to beat the Andersons back"
+      }, {
+        name: "Retirement can wait",
+        note: "Dan shows up — and Chris agrees to one more sitting job"
+      }]
+    }
+  }
 };
-
-const CATEGORIES = [
-  { key: "characters", label: "Characters", icon: User, prompt: "Add a character…" },
-  { key: "scenes", label: "Scenes", icon: Clapperboard, prompt: "Add a scene or moment…" },
-  { key: "moods", label: "Moods", icon: Wind, prompt: "Add a mood…" },
-];
+const CATEGORIES = [{
+  key: "characters",
+  label: "Characters",
+  icon: User,
+  prompt: "Add a character…"
+}, {
+  key: "scenes",
+  label: "Scenes",
+  icon: Clapperboard,
+  prompt: "Add a scene or moment…"
+}, {
+  key: "moods",
+  label: "Moods",
+  icon: Wind,
+  prompt: "Add a mood…"
+}];
 
 // One shared mood set for every film — tap to toggle during your watch
-const SHARED_MOODS = [
-  "Joy", "Tension", "Nostalgia", "Awe", "Excitement", "Sadness",
-  "Comfort", "Dread", "Triumph", "Heartbreak", "Laughter", "Chills",
-  "Longing", "Adrenaline", "Warmth", "Melancholy", "Suspense", "Wonder",
-  "Anger", "Fear", "Hope", "Bittersweet", "Cozy", "Empowered",
-  "Tearful", "Giddy", "Tender", "Unsettled", "Cathartic", "Inspired",
-];
-
-const ALL_GENRES = [...new Set(Object.values(FILMS).flatMap((f) => f.genres))].sort();
+const SHARED_MOODS = ["Joy", "Tension", "Nostalgia", "Awe", "Excitement", "Sadness", "Comfort", "Dread", "Triumph", "Heartbreak", "Laughter", "Chills", "Longing", "Adrenaline", "Warmth", "Melancholy", "Suspense", "Wonder", "Anger", "Fear", "Hope", "Bittersweet", "Cozy", "Empowered", "Tearful", "Giddy", "Tender", "Unsettled", "Cathartic", "Inspired"];
+const ALL_GENRES = [...new Set(Object.values(FILMS).flatMap(f => f.genres))].sort();
 
 // ═══════════════════════════════════════════════════════════════
 // Storage — works standalone on localStorage. If Firebase is
 // configured and the user is signed in, it also syncs to the cloud.
 // ═══════════════════════════════════════════════════════════════
 function seedData(film) {
-  const stamp = (arr, cat) =>
-    (arr || []).map((e, i) => ({
-      id: `${cat}-${i}-${Date.now()}`, name: e.name, note: e.note || "",
-      rating: 0, favorite: false, tags: [],
-    }));
+  const stamp = (arr, cat) => (arr || []).map((e, i) => ({
+    id: `${cat}-${i}-${Date.now()}`,
+    name: e.name,
+    note: e.note || "",
+    rating: 0,
+    favorite: false,
+    tags: []
+  }));
   return {
     characters: stamp(film.seed.characters, "c"),
     scenes: stamp(film.seed.scenes, "s"),
     moodsSelected: [],
     moodsCustom: [],
-    filmRating: 0,
+    filmRating: 0
   };
 }
-
 const LS_KEY = (uid, filmId) => `vault:${uid || "local"}:${filmId}`;
-const hasCloud = () => !!(window.VaultFirebase && window.VaultConfigError == null);
-
+const hasCloud = () => !!window.VaultFirebase;
 function lsLoad(uid, filmId) {
-  try { const raw = localStorage.getItem(LS_KEY(uid, filmId)); return raw ? JSON.parse(raw) : null; }
-  catch { return null; }
+  try {
+    const raw = localStorage.getItem(LS_KEY(uid, filmId));
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
 }
 function lsSave(uid, filmId, data) {
-  try { localStorage.setItem(LS_KEY(uid, filmId), JSON.stringify(data)); } catch (e) { console.error("local save failed", e); }
+  try {
+    localStorage.setItem(LS_KEY(uid, filmId), JSON.stringify(data));
+  } catch (e) {
+    console.error("local save failed", e);
+  }
 }
 
 // Load a film's data. Prefer cloud when available, else localStorage;
@@ -649,224 +1404,511 @@ async function loadFilm(uid, film) {
   if (hasCloud() && uid) {
     try {
       const existing = await window.VaultFirebase.loadFilm(uid, film.id);
-      if (existing) { lsSave(uid, film.id, existing); return existing; }
-    } catch (e) { console.error("cloud load failed, falling back to local", e); }
+      if (existing) {
+        lsSave(uid, film.id, existing);
+        return existing;
+      }
+    } catch (e) {
+      console.error("cloud load failed, falling back to local", e);
+    }
   }
   const local = lsLoad(uid, film.id);
   if (local) return local;
   const seeded = seedData(film);
   lsSave(uid, film.id, seeded);
   if (hasCloud() && uid) {
-    try { await window.VaultFirebase.saveFilm(uid, film.id, seeded); } catch (e) { console.error("seed cloud save failed", e); }
+    try {
+      await window.VaultFirebase.saveFilm(uid, film.id, seeded);
+    } catch (e) {
+      console.error("seed cloud save failed", e);
+    }
   }
   return seeded;
 }
 async function saveFilm(uid, id, data) {
   lsSave(uid, id, data);
   if (hasCloud() && uid) {
-    try { await window.VaultFirebase.saveFilm(uid, id, data); } catch (e) { console.error("cloud save failed", e); }
+    try {
+      await window.VaultFirebase.saveFilm(uid, id, data);
+    } catch (e) {
+      console.error("cloud save failed", e);
+    }
   }
 }
 
 // ═══════════════════════════════════════════════════════════════
 // Star rating
 // ═══════════════════════════════════════════════════════════════
-function Stars({ value, onChange, accent, size = 18 }) {
+function Stars({
+  value,
+  onChange,
+  accent,
+  size = 18
+}) {
   const [hover, setHover] = useState(0);
-  return (
-    <div style={{ display: "flex", gap: 2 }}>
-      {[1, 2, 3, 4, 5].map((n) => {
-        const active = (hover || value) >= n;
-        return (
-          <button key={n} onClick={() => onChange(n === value ? 0 : n)}
-            onMouseEnter={() => setHover(n)} onMouseLeave={() => setHover(0)}
-            aria-label={`Rate ${n} of 5`}
-            style={{ background: "none", border: "none", cursor: "pointer", padding: 1,
-              lineHeight: 0, color: active ? accent : "rgba(255,255,255,0.16)",
-              transition: "color .12s, transform .12s", transform: active ? "scale(1.06)" : "scale(1)" }}>
-            <Star size={size} fill={active ? accent : "none"} strokeWidth={active ? 0 : 1.6} color={active ? accent : "currentColor"} />
-          </button>
-        );
-      })}
-    </div>
-  );
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 2
+    }
+  }, [1, 2, 3, 4, 5].map(n => {
+    const active = (hover || value) >= n;
+    return /*#__PURE__*/React.createElement("button", {
+      key: n,
+      onClick: () => onChange(n === value ? 0 : n),
+      onMouseEnter: () => setHover(n),
+      onMouseLeave: () => setHover(0),
+      "aria-label": `Rate ${n} of 5`,
+      style: {
+        background: "none",
+        border: "none",
+        cursor: "pointer",
+        padding: 1,
+        lineHeight: 0,
+        color: active ? accent : "rgba(255,255,255,0.16)",
+        transition: "color .12s, transform .12s",
+        transform: active ? "scale(1.06)" : "scale(1)"
+      }
+    }, /*#__PURE__*/React.createElement(Star, {
+      size: size,
+      fill: active ? accent : "none",
+      strokeWidth: active ? 0 : 1.6,
+      color: active ? accent : "currentColor"
+    }));
+  }));
 }
 
 // ═══════════════════════════════════════════════════════════════
 // Tag editor
 // ═══════════════════════════════════════════════════════════════
-function TagRow({ tags, onAdd, onRemove, theme }) {
+function TagRow({
+  tags,
+  onAdd,
+  onRemove,
+  theme
+}) {
   const [input, setInput] = useState("");
   const [open, setOpen] = useState(false);
-  const add = () => { const t = input.trim(); if (t && !tags.includes(t)) onAdd(t); setInput(""); setOpen(false); };
-  return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-      {tags.map((t) => (
-        <span key={t} style={{ display: "inline-flex", alignItems: "center", gap: 4,
-          background: "rgba(0,0,0,0.3)", border: `1px solid ${theme.panelBorder}`,
-          color: theme.accent2, borderRadius: 20, padding: "2px 8px 2px 10px",
-          fontFamily: theme.body, fontSize: 11.5 }}>
-          {t}
-          <button onClick={() => onRemove(t)} aria-label={`Remove ${t}`}
-            style={{ background: "none", border: "none", color: theme.sub, cursor: "pointer",
-              padding: 0, lineHeight: 0, display: "flex" }}><X size={12} /></button>
-        </span>
-      ))}
-      {open ? (
-        <input autoFocus value={input} onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") add(); if (e.key === "Escape") { setOpen(false); setInput(""); } }}
-          onBlur={add} placeholder="tag…"
-          style={{ background: "rgba(0,0,0,0.3)", border: `1px solid ${theme.accent}`,
-            borderRadius: 20, color: theme.ink, fontFamily: theme.body, fontSize: 11.5,
-            padding: "3px 10px", width: 80 }} />
-      ) : (
-        <button onClick={() => setOpen(true)}
-          style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "none",
-            border: `1px dashed ${theme.panelBorder}`, color: theme.sub, borderRadius: 20,
-            padding: "2px 9px", cursor: "pointer", fontFamily: theme.body, fontSize: 11.5 }}>
-          <Tag size={11} /> tag
-        </button>
-      )}
-    </div>
-  );
+  const add = () => {
+    const t = input.trim();
+    if (t && !tags.includes(t)) onAdd(t);
+    setInput("");
+    setOpen(false);
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexWrap: "wrap",
+      gap: 6,
+      alignItems: "center"
+    }
+  }, tags.map(t => /*#__PURE__*/React.createElement("span", {
+    key: t,
+    style: {
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 4,
+      background: "rgba(0,0,0,0.3)",
+      border: `1px solid ${theme.panelBorder}`,
+      color: theme.accent2,
+      borderRadius: 20,
+      padding: "2px 8px 2px 10px",
+      fontFamily: theme.body,
+      fontSize: 11.5
+    }
+  }, t, /*#__PURE__*/React.createElement("button", {
+    onClick: () => onRemove(t),
+    "aria-label": `Remove ${t}`,
+    style: {
+      background: "none",
+      border: "none",
+      color: theme.sub,
+      cursor: "pointer",
+      padding: 0,
+      lineHeight: 0,
+      display: "flex"
+    }
+  }, /*#__PURE__*/React.createElement(X, {
+    size: 12
+  })))), open ? /*#__PURE__*/React.createElement("input", {
+    autoFocus: true,
+    value: input,
+    onChange: e => setInput(e.target.value),
+    onKeyDown: e => {
+      if (e.key === "Enter") add();
+      if (e.key === "Escape") {
+        setOpen(false);
+        setInput("");
+      }
+    },
+    onBlur: add,
+    placeholder: "tag…",
+    style: {
+      background: "rgba(0,0,0,0.3)",
+      border: `1px solid ${theme.accent}`,
+      borderRadius: 20,
+      color: theme.ink,
+      fontFamily: theme.body,
+      fontSize: 11.5,
+      padding: "3px 10px",
+      width: 80
+    }
+  }) : /*#__PURE__*/React.createElement("button", {
+    onClick: () => setOpen(true),
+    style: {
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 3,
+      background: "none",
+      border: `1px dashed ${theme.panelBorder}`,
+      color: theme.sub,
+      borderRadius: 20,
+      padding: "2px 9px",
+      cursor: "pointer",
+      fontFamily: theme.body,
+      fontSize: 11.5
+    }
+  }, /*#__PURE__*/React.createElement(Tag, {
+    size: 11
+  }), " tag"));
 }
 
 // ═══════════════════════════════════════════════════════════════
 // Entry card (characters + scenes)
 // ═══════════════════════════════════════════════════════════════
-function EntryCard({ entry, theme, onUpdate, onDelete }) {
-  return (
-    <div className="fadein" style={{ background: theme.panel, border: `1px solid ${theme.panelBorder}`,
-      borderRadius: 12, padding: "14px 16px", marginBottom: 10,
-      display: "flex", flexDirection: "column", gap: 9 }}>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
-        <div style={{ fontFamily: theme.display, fontSize: 20, color: theme.ink, fontWeight: 600, lineHeight: 1.15 }}>
-          {entry.name}
-        </div>
-        <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-          <button onClick={() => onUpdate({ favorite: !entry.favorite })} aria-label="Favorite"
-            style={{ background: "none", border: "none", cursor: "pointer", padding: 2, lineHeight: 0,
-              color: entry.favorite ? theme.accent : theme.sub, opacity: entry.favorite ? 1 : 0.5 }}>
-            <Heart size={16} fill={entry.favorite ? theme.accent : "none"} color={entry.favorite ? theme.accent : "currentColor"} />
-          </button>
-          <button onClick={onDelete} aria-label="Delete"
-            style={{ background: "none", border: "none", color: theme.sub, cursor: "pointer",
-              padding: 2, opacity: 0.5, lineHeight: 0 }}><Trash2 size={16} /></button>
-        </div>
-      </div>
-      <Stars value={entry.rating} onChange={(r) => onUpdate({ rating: r })} accent={theme.accent} />
-      <textarea value={entry.note} onChange={(e) => onUpdate({ note: e.target.value })}
-        placeholder="Why does this land? What makes it work…" rows={entry.note ? 2 : 1}
-        style={{ background: "rgba(0,0,0,0.25)", border: `1px solid ${theme.panelBorder}`,
-          borderRadius: 8, color: theme.ink, fontFamily: theme.body, fontSize: 13.5,
-          padding: "8px 10px", resize: "vertical", width: "100%",
-          boxSizing: "border-box", lineHeight: 1.5 }} />
-      <TagRow tags={entry.tags || []} theme={theme}
-        onAdd={(t) => onUpdate({ tags: [...(entry.tags || []), t] })}
-        onRemove={(t) => onUpdate({ tags: (entry.tags || []).filter((x) => x !== t) })} />
-    </div>
-  );
+function EntryCard({
+  entry,
+  theme,
+  onUpdate,
+  onDelete
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    className: "fadein",
+    style: {
+      background: theme.panel,
+      border: `1px solid ${theme.panelBorder}`,
+      borderRadius: 12,
+      padding: "14px 16px",
+      marginBottom: 10,
+      display: "flex",
+      flexDirection: "column",
+      gap: 9
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: theme.display,
+      fontSize: 20,
+      color: theme.ink,
+      fontWeight: 600,
+      lineHeight: 1.15
+    }
+  }, entry.name), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 4,
+      flexShrink: 0
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => onUpdate({
+      favorite: !entry.favorite
+    }),
+    "aria-label": "Favorite",
+    style: {
+      background: "none",
+      border: "none",
+      cursor: "pointer",
+      padding: 2,
+      lineHeight: 0,
+      color: entry.favorite ? theme.accent : theme.sub,
+      opacity: entry.favorite ? 1 : 0.5
+    }
+  }, /*#__PURE__*/React.createElement(Heart, {
+    size: 16,
+    fill: entry.favorite ? theme.accent : "none",
+    color: entry.favorite ? theme.accent : "currentColor"
+  })), /*#__PURE__*/React.createElement("button", {
+    onClick: onDelete,
+    "aria-label": "Delete",
+    style: {
+      background: "none",
+      border: "none",
+      color: theme.sub,
+      cursor: "pointer",
+      padding: 2,
+      opacity: 0.5,
+      lineHeight: 0
+    }
+  }, /*#__PURE__*/React.createElement(Trash2, {
+    size: 16
+  })))), /*#__PURE__*/React.createElement(Stars, {
+    value: entry.rating,
+    onChange: r => onUpdate({
+      rating: r
+    }),
+    accent: theme.accent
+  }), /*#__PURE__*/React.createElement("textarea", {
+    value: entry.note,
+    onChange: e => onUpdate({
+      note: e.target.value
+    }),
+    placeholder: "Why does this land? What makes it work…",
+    rows: entry.note ? 2 : 1,
+    style: {
+      background: "rgba(0,0,0,0.25)",
+      border: `1px solid ${theme.panelBorder}`,
+      borderRadius: 8,
+      color: theme.ink,
+      fontFamily: theme.body,
+      fontSize: 13.5,
+      padding: "8px 10px",
+      resize: "vertical",
+      width: "100%",
+      boxSizing: "border-box",
+      lineHeight: 1.5
+    }
+  }), /*#__PURE__*/React.createElement(TagRow, {
+    tags: entry.tags || [],
+    theme: theme,
+    onAdd: t => onUpdate({
+      tags: [...(entry.tags || []), t]
+    }),
+    onRemove: t => onUpdate({
+      tags: (entry.tags || []).filter(x => x !== t)
+    })
+  }));
 }
 
 // ═══════════════════════════════════════════════════════════════
 // Stats dashboard
 // ═══════════════════════════════════════════════════════════════
-function Dashboard({ data, theme }) {
+function Dashboard({
+  data,
+  theme
+}) {
   const stats = useMemo(() => {
     const all = [...data.characters, ...data.scenes];
-    const rated = all.filter((e) => e.rating > 0);
-    const favs = all.filter((e) => e.favorite);
-    const avg = rated.length ? (rated.reduce((s, e) => s + e.rating, 0) / rated.length) : 0;
+    const rated = all.filter(e => e.rating > 0);
+    const favs = all.filter(e => e.favorite);
+    const avg = rated.length ? rated.reduce((s, e) => s + e.rating, 0) / rated.length : 0;
     const top = [...rated].sort((a, b) => b.rating - a.rating).slice(0, 3);
     const tagCount = {};
-    all.forEach((e) => (e.tags || []).forEach((t) => (tagCount[t] = (tagCount[t] || 0) + 1)));
+    all.forEach(e => (e.tags || []).forEach(t => tagCount[t] = (tagCount[t] || 0) + 1));
     const topTags = Object.entries(tagCount).sort((a, b) => b[1] - a[1]).slice(0, 6);
     const moods = data.moodsSelected || [];
-    return { total: all.length, rated: rated.length, favs, avg, top, topTags, moods };
+    return {
+      total: all.length,
+      rated: rated.length,
+      favs,
+      avg,
+      top,
+      topTags,
+      moods
+    };
   }, [data]);
-
-  const Bar = ({ label, val, max, color }) => (
-    <div style={{ marginBottom: 8 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", fontFamily: theme.body,
-        fontSize: 12, color: theme.sub, marginBottom: 3 }}>
-        <span>{label}</span><span style={{ color: theme.ink }}>{val}</span>
-      </div>
-      <div style={{ height: 6, background: "rgba(0,0,0,0.35)", borderRadius: 4, overflow: "hidden" }}>
-        <div style={{ height: "100%", width: `${max ? (val / max) * 100 : 0}%`,
-          background: color, borderRadius: 4, transition: "width .4s" }} />
-      </div>
-    </div>
-  );
-
-  return (
-    <div className="fadein" style={{ background: theme.panel, border: `1px solid ${theme.panelBorder}`,
-      borderRadius: 14, padding: 18, marginBottom: 20 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16,
-        fontFamily: theme.display, fontSize: 18, color: theme.ink, fontWeight: 600 }}>
-        <BarChart3 size={18} color={theme.accent} /> Your take, by the numbers
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 16 }}>
-        {[
-          { n: stats.rated, l: "rated" },
-          { n: stats.avg ? stats.avg.toFixed(1) : "—", l: "avg stars" },
-          { n: stats.favs.length, l: "favorites" },
-        ].map((s, i) => (
-          <div key={i} style={{ textAlign: "center", background: "rgba(0,0,0,0.25)",
-            borderRadius: 10, padding: "12px 6px" }}>
-            <div style={{ fontFamily: theme.display, fontSize: 26, color: theme.accent, fontWeight: 700 }}>{s.n}</div>
-            <div style={{ fontFamily: theme.body, fontSize: 11, color: theme.sub, letterSpacing: 0.5 }}>{s.l}</div>
-          </div>
-        ))}
-      </div>
-
-      {stats.top.length > 0 && (
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ fontFamily: theme.body, fontSize: 12, letterSpacing: 1.5, textTransform: "uppercase",
-            color: theme.accent2, marginBottom: 8, display: "flex", alignItems: "center", gap: 5 }}>
-            <Award size={13} /> Highest rated
-          </div>
-          {stats.top.map((e) => (
-            <Bar key={e.id} label={e.name} val={e.rating} max={5} color={theme.accent} />
-          ))}
-        </div>
-      )}
-
-      {stats.topTags.length > 0 && (
-        <div style={{ marginBottom: stats.moods.length > 0 ? 14 : 0 }}>
-          <div style={{ fontFamily: theme.body, fontSize: 12, letterSpacing: 1.5, textTransform: "uppercase",
-            color: theme.accent2, marginBottom: 8 }}>Most-used tags</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {stats.topTags.map(([t, c]) => (
-              <span key={t} style={{ background: "rgba(0,0,0,0.3)", border: `1px solid ${theme.panelBorder}`,
-                color: theme.ink, borderRadius: 20, padding: "3px 11px", fontFamily: theme.body, fontSize: 12 }}>
-                {t} <span style={{ color: theme.sub }}>×{c}</span>
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {stats.moods.length > 0 && (
-        <div>
-          <div style={{ fontFamily: theme.body, fontSize: 12, letterSpacing: 1.5, textTransform: "uppercase",
-            color: theme.accent2, marginBottom: 8 }}>Moods felt this watch</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {stats.moods.map((m) => (
-              <span key={m} style={{ background: theme.accent, color: theme.bg, borderRadius: 20,
-                padding: "3px 11px", fontFamily: theme.body, fontSize: 12, fontWeight: 600 }}>{m}</span>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
+  const Bar = ({
+    label,
+    val,
+    max,
+    color
+  }) => /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 8
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      fontFamily: theme.body,
+      fontSize: 12,
+      color: theme.sub,
+      marginBottom: 3
+    }
+  }, /*#__PURE__*/React.createElement("span", null, label), /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: theme.ink
+    }
+  }, val)), /*#__PURE__*/React.createElement("div", {
+    style: {
+      height: 6,
+      background: "rgba(0,0,0,0.35)",
+      borderRadius: 4,
+      overflow: "hidden"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      height: "100%",
+      width: `${max ? val / max * 100 : 0}%`,
+      background: color,
+      borderRadius: 4,
+      transition: "width .4s"
+    }
+  })));
+  return /*#__PURE__*/React.createElement("div", {
+    className: "fadein",
+    style: {
+      background: theme.panel,
+      border: `1px solid ${theme.panelBorder}`,
+      borderRadius: 14,
+      padding: 18,
+      marginBottom: 20
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      marginBottom: 16,
+      fontFamily: theme.display,
+      fontSize: 18,
+      color: theme.ink,
+      fontWeight: 600
+    }
+  }, /*#__PURE__*/React.createElement(BarChart3, {
+    size: 18,
+    color: theme.accent
+  }), " Your take, by the numbers"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: "repeat(3, 1fr)",
+      gap: 12,
+      marginBottom: 16
+    }
+  }, [{
+    n: stats.rated,
+    l: "rated"
+  }, {
+    n: stats.avg ? stats.avg.toFixed(1) : "—",
+    l: "avg stars"
+  }, {
+    n: stats.favs.length,
+    l: "favorites"
+  }].map((s, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    style: {
+      textAlign: "center",
+      background: "rgba(0,0,0,0.25)",
+      borderRadius: 10,
+      padding: "12px 6px"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: theme.display,
+      fontSize: 26,
+      color: theme.accent,
+      fontWeight: 700
+    }
+  }, s.n), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: theme.body,
+      fontSize: 11,
+      color: theme.sub,
+      letterSpacing: 0.5
+    }
+  }, s.l)))), stats.top.length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 14
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: theme.body,
+      fontSize: 12,
+      letterSpacing: 1.5,
+      textTransform: "uppercase",
+      color: theme.accent2,
+      marginBottom: 8,
+      display: "flex",
+      alignItems: "center",
+      gap: 5
+    }
+  }, /*#__PURE__*/React.createElement(Award, {
+    size: 13
+  }), " Highest rated"), stats.top.map(e => /*#__PURE__*/React.createElement(Bar, {
+    key: e.id,
+    label: e.name,
+    val: e.rating,
+    max: 5,
+    color: theme.accent
+  }))), stats.topTags.length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: stats.moods.length > 0 ? 14 : 0
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: theme.body,
+      fontSize: 12,
+      letterSpacing: 1.5,
+      textTransform: "uppercase",
+      color: theme.accent2,
+      marginBottom: 8
+    }
+  }, "Most-used tags"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexWrap: "wrap",
+      gap: 6
+    }
+  }, stats.topTags.map(([t, c]) => /*#__PURE__*/React.createElement("span", {
+    key: t,
+    style: {
+      background: "rgba(0,0,0,0.3)",
+      border: `1px solid ${theme.panelBorder}`,
+      color: theme.ink,
+      borderRadius: 20,
+      padding: "3px 11px",
+      fontFamily: theme.body,
+      fontSize: 12
+    }
+  }, t, " ", /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: theme.sub
+    }
+  }, "×", c))))), stats.moods.length > 0 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: theme.body,
+      fontSize: 12,
+      letterSpacing: 1.5,
+      textTransform: "uppercase",
+      color: theme.accent2,
+      marginBottom: 8
+    }
+  }, "Moods felt this watch"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexWrap: "wrap",
+      gap: 6
+    }
+  }, stats.moods.map(m => /*#__PURE__*/React.createElement("span", {
+    key: m,
+    style: {
+      background: theme.accent,
+      color: theme.bg,
+      borderRadius: 20,
+      padding: "3px 11px",
+      fontFamily: theme.body,
+      fontSize: 12,
+      fontWeight: 600
+    }
+  }, m)))));
 }
 
 // ═══════════════════════════════════════════════════════════════
 // Film detail view
 // ═══════════════════════════════════════════════════════════════
-function FilmView({ film, uid, onBack }) {
-  const { theme } = film;
+function FilmView({
+  film,
+  uid,
+  onBack
+}) {
+  const {
+    theme
+  } = film;
   const [data, setData] = useState(null);
   const [activeCat, setActiveCat] = useState("characters");
   const [adding, setAdding] = useState("");
@@ -874,419 +1916,943 @@ function FilmView({ film, uid, onBack }) {
   const [showStats, setShowStats] = useState(false);
   const [favOnly, setFavOnly] = useState(false);
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => { loadFilm(uid, film).then(setData); }, [film.id, uid]);
-
-  const persist = useCallback((next) => {
+  useEffect(() => {
+    loadFilm(uid, film).then(setData);
+  }, [film.id, uid]);
+  const persist = useCallback(next => {
     setData(next);
     setSaving(true);
     saveFilm(uid, film.id, next).finally(() => setSaving(false));
   }, [film.id, uid]);
-
-  if (!data) return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
-      background: theme.bg, color: theme.sub, fontFamily: theme.body, gap: 10 }}>
-      <Loader size={18} color={theme.accent} style={{ animation: "spin .9s linear infinite" }} /> Loading…
-    </div>
-  );
-
+  if (!data) return /*#__PURE__*/React.createElement("div", {
+    style: {
+      minHeight: "100vh",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      background: theme.bg,
+      color: theme.sub,
+      fontFamily: theme.body,
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement(Loader, {
+    size: 18,
+    color: theme.accent,
+    style: {
+      animation: "spin .9s linear infinite"
+    }
+  }), " Loading…");
   const isMoods = activeCat === "moods";
-  const list = isMoods ? [] : (data[activeCat] || []);
-  const catMeta = CATEGORIES.find((c) => c.key === activeCat);
+  const list = isMoods ? [] : data[activeCat] || [];
+  const catMeta = CATEGORIES.find(c => c.key === activeCat);
 
   // ── Mood pill model ──
   const moodCustom = data.moodsCustom || [];
   const moodSelected = data.moodsSelected || [];
-  const moodPills = [...SHARED_MOODS, ...moodCustom.filter((m) => !SHARED_MOODS.includes(m))];
-  const toggleMood = (m) => {
-    const next = moodSelected.includes(m) ? moodSelected.filter((x) => x !== m) : [...moodSelected, m];
-    persist({ ...data, moodsSelected: next });
+  const moodPills = [...SHARED_MOODS, ...moodCustom.filter(m => !SHARED_MOODS.includes(m))];
+  const toggleMood = m => {
+    const next = moodSelected.includes(m) ? moodSelected.filter(x => x !== m) : [...moodSelected, m];
+    persist({
+      ...data,
+      moodsSelected: next
+    });
   };
   const addMood = () => {
-    const m = adding.trim(); if (!m) return;
-    const exists = moodPills.some((p) => p.toLowerCase() === m.toLowerCase());
+    const m = adding.trim();
+    if (!m) return;
+    const exists = moodPills.some(p => p.toLowerCase() === m.toLowerCase());
     const nextCustom = exists ? moodCustom : [...moodCustom, m];
     const nextSel = moodSelected.includes(m) ? moodSelected : [...moodSelected, m];
-    persist({ ...data, moodsCustom: nextCustom, moodsSelected: nextSel });
+    persist({
+      ...data,
+      moodsCustom: nextCustom,
+      moodsSelected: nextSel
+    });
     setAdding("");
   };
-  const clearMoods = () => persist({ ...data, moodsSelected: [] });
-
-  const filtered = list.filter((e) => {
+  const clearMoods = () => persist({
+    ...data,
+    moodsSelected: []
+  });
+  const filtered = list.filter(e => {
     if (favOnly && !e.favorite) return false;
     if (!query.trim()) return true;
     const q = query.toLowerCase();
-    return e.name.toLowerCase().includes(q) || (e.note || "").toLowerCase().includes(q)
-      || (e.tags || []).some((t) => t.toLowerCase().includes(q));
+    return e.name.toLowerCase().includes(q) || (e.note || "").toLowerCase().includes(q) || (e.tags || []).some(t => t.toLowerCase().includes(q));
   });
-
   const addEntry = () => {
-    const name = adding.trim(); if (!name) return;
-    persist({ ...data, [activeCat]: [
-      { id: `n-${Date.now()}`, name, rating: 0, note: "", favorite: false, tags: [] }, ...list] });
+    const name = adding.trim();
+    if (!name) return;
+    persist({
+      ...data,
+      [activeCat]: [{
+        id: `n-${Date.now()}`,
+        name,
+        rating: 0,
+        note: "",
+        favorite: false,
+        tags: []
+      }, ...list]
+    });
     setAdding("");
   };
-  const update = (id, patch) => persist({ ...data,
-    [activeCat]: list.map((e) => (e.id === id ? { ...e, ...patch } : e)) });
-  const remove = (id) => persist({ ...data, [activeCat]: list.filter((e) => e.id !== id) });
-
-  const rated = list.filter((e) => e.rating > 0);
+  const update = (id, patch) => persist({
+    ...data,
+    [activeCat]: list.map(e => e.id === id ? {
+      ...e,
+      ...patch
+    } : e)
+  });
+  const remove = id => persist({
+    ...data,
+    [activeCat]: list.filter(e => e.id !== id)
+  });
+  const rated = list.filter(e => e.rating > 0);
   const avg = rated.length ? (rated.reduce((s, e) => s + e.rating, 0) / rated.length).toFixed(1) : "—";
-
-  return (
-    <div style={{ minHeight: "100vh", background: theme.bg, backgroundImage: theme.texture, color: theme.ink }}>
-      <div style={{ maxWidth: 660, margin: "0 auto", padding: "20px 18px 60px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-          <button onClick={onBack}
-            style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none",
-              border: `1px solid ${theme.panelBorder}`, color: theme.sub, borderRadius: 8,
-              padding: "6px 12px", cursor: "pointer", fontFamily: theme.body, fontSize: 13 }}>
-            <ChevronLeft size={15} /> All films
-          </button>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: theme.body,
-            fontSize: 12, color: theme.sub, opacity: saving ? 1 : 0.5, transition: "opacity .2s" }}>
-            <Cloud size={14} color={saving ? theme.accent : theme.sub} /> {saving ? "Saving…" : "Saved"}
-          </span>
-        </div>
-
-        <div style={{ marginBottom: 4, fontFamily: theme.body, fontSize: 12, letterSpacing: 3,
-          textTransform: "uppercase", color: theme.accent2 }}>{film.year}</div>
-        <h1 style={{ fontFamily: theme.display, fontSize: 46, margin: "0 0 6px", fontWeight: 700,
-          textTransform: film.upper ? "uppercase" : "none", letterSpacing: film.upper ? 1 : 0,
-          color: theme.ink, textShadow: theme.glow, lineHeight: 1 }}>{film.title}</h1>
-        <p style={{ fontFamily: theme.display, fontStyle: "italic", color: theme.sub, margin: "0 0 14px", fontSize: 17 }}>
-          {film.tagline}
-        </p>
-
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
-          {film.genres.map((g) => (
-            <span key={g} style={{ background: "rgba(0,0,0,0.3)", border: `1px solid ${theme.panelBorder}`,
-              color: theme.accent2, borderRadius: 20, padding: "3px 12px", fontFamily: theme.body,
-              fontSize: 12, letterSpacing: 0.3 }}>{g}</span>
-          ))}
-        </div>
-
-        <p style={{ fontFamily: theme.body, fontSize: 14, lineHeight: 1.6, color: theme.ink,
-          opacity: 0.9, margin: "0 0 18px", background: "rgba(0,0,0,0.2)",
-          borderLeft: `3px solid ${theme.accent}`, borderRadius: "0 8px 8px 0", padding: "12px 14px" }}>
-          {film.synopsis}
-        </p>
-
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 18,
-          background: theme.panel, border: `1px solid ${theme.panelBorder}`, borderRadius: 12, padding: "12px 16px" }}>
-          <span style={{ fontFamily: theme.body, fontSize: 13, color: theme.sub }}>Overall film</span>
-          <Stars value={data.filmRating || 0} onChange={(r) => persist({ ...data, filmRating: r === data.filmRating ? 0 : r })}
-            accent={theme.accent} size={22} />
-        </div>
-
-        <button onClick={() => setShowStats((s) => !s)}
-          style={{ display: "inline-flex", alignItems: "center", gap: 6, background: showStats ? theme.accent : theme.panel,
-            border: `1px solid ${showStats ? theme.accent : theme.panelBorder}`, color: showStats ? theme.bg : theme.ink,
-            borderRadius: 10, padding: "8px 14px", cursor: "pointer", fontFamily: theme.body,
-            fontSize: 13, fontWeight: 600, marginBottom: 18 }}>
-          <BarChart3 size={15} /> {showStats ? "Hide" : "Show"} stats dashboard
-        </button>
-
-        {showStats && <Dashboard data={data} theme={theme} />}
-
-        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-          {CATEGORIES.map((c) => {
-            const Icon = c.icon; const on = activeCat === c.key;
-            const count = c.key === "moods" ? (data.moodsSelected || []).length : (data[c.key] || []).length;
-            return (
-              <button key={c.key} onClick={() => { setActiveCat(c.key); setQuery(""); setFavOnly(false); }}
-                style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 5,
-                  background: on ? theme.accent : theme.panel,
-                  border: `1px solid ${on ? theme.accent : theme.panelBorder}`,
-                  color: on ? theme.bg : theme.ink, borderRadius: 10, padding: "12px 6px",
-                  cursor: "pointer", fontFamily: theme.body, fontSize: 12.5, fontWeight: 600,
-                  transition: "all .15s", boxShadow: on ? theme.glow : "none" }}>
-                <Icon size={18} /> {c.label}
-                <span style={{ fontSize: 11, opacity: 0.7 }}>{count}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {isMoods ? (
-          <div className="fadein">
-            <div style={{ fontFamily: theme.body, fontSize: 13, color: theme.sub, margin: "2px 2px 14px", lineHeight: 1.5 }}>
-              Tap what you feel as you watch. {moodSelected.length > 0
-                ? <span style={{ color: theme.ink }}>{moodSelected.length} selected</span>
-                : "Nothing selected yet."}
-            </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 18 }}>
-              {moodPills.map((m) => {
-                const on = moodSelected.includes(m);
-                const custom = moodCustom.includes(m) && !SHARED_MOODS.includes(m);
-                return (
-                  <button key={m} onClick={() => toggleMood(m)}
-                    style={{ background: on ? theme.accent : theme.panel,
-                      border: `1px solid ${on ? theme.accent : (custom ? theme.accent2 : theme.panelBorder)}`,
-                      color: on ? theme.bg : theme.ink, borderRadius: 22,
-                      padding: "8px 16px", cursor: "pointer", fontFamily: theme.body,
-                      fontSize: 14, fontWeight: on ? 700 : 500, letterSpacing: 0.2,
-                      boxShadow: on ? theme.glow : "none", transition: "all .13s",
-                      transform: on ? "translateY(-1px)" : "none" }}>
-                    {m}
-                  </button>
-                );
-              })}
-            </div>
-            <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-              <input value={adding} onChange={(e) => setAdding(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addMood()} placeholder="Add your own mood…"
-                style={{ flex: 1, background: theme.panel, border: `1px solid ${theme.panelBorder}`,
-                  borderRadius: 10, color: theme.ink, fontFamily: theme.body, fontSize: 14, padding: "11px 14px" }} />
-              <button onClick={addMood}
-                style={{ display: "inline-flex", alignItems: "center", gap: 5, background: theme.accent,
-                  border: "none", color: theme.bg, borderRadius: 10, padding: "0 16px",
-                  cursor: "pointer", fontFamily: theme.body, fontSize: 14, fontWeight: 700 }}>
-                <Plus size={16} /> Add
-              </button>
-            </div>
-            {moodSelected.length > 0 && (
-              <button onClick={clearMoods}
-                style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none",
-                  border: `1px solid ${theme.panelBorder}`, color: theme.sub, borderRadius: 10,
-                  padding: "8px 14px", cursor: "pointer", fontFamily: theme.body, fontSize: 13 }}>
-                <X size={14} /> Clear all selected
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="fadein">
-            <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-              <div style={{ flex: 1, position: "relative" }}>
-                <Search size={15} color={theme.sub} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)" }} />
-                <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={`Search ${catMeta.label.toLowerCase()}…`}
-                  style={{ width: "100%", boxSizing: "border-box", background: theme.panel,
-                    border: `1px solid ${theme.panelBorder}`, borderRadius: 10, color: theme.ink,
-                    fontFamily: theme.body, fontSize: 13.5, padding: "10px 12px 10px 34px" }} />
-              </div>
-              <button onClick={() => setFavOnly((f) => !f)} aria-label="Favorites only"
-                style={{ display: "inline-flex", alignItems: "center", gap: 5, background: favOnly ? theme.accent : theme.panel,
-                  border: `1px solid ${favOnly ? theme.accent : theme.panelBorder}`, color: favOnly ? theme.bg : theme.sub,
-                  borderRadius: 10, padding: "0 14px", cursor: "pointer", fontFamily: theme.body, fontSize: 13, fontWeight: 600 }}>
-                <Heart size={15} fill={favOnly ? theme.bg : "none"} color={favOnly ? theme.bg : "currentColor"} /> Faves
-              </button>
-            </div>
-
-            <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-              <input value={adding} onChange={(e) => setAdding(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addEntry()} placeholder={catMeta.prompt}
-                style={{ flex: 1, background: theme.panel, border: `1px solid ${theme.panelBorder}`,
-                  borderRadius: 10, color: theme.ink, fontFamily: theme.body, fontSize: 14, padding: "11px 14px" }} />
-              <button onClick={addEntry}
-                style={{ display: "inline-flex", alignItems: "center", gap: 5, background: theme.accent,
-                  border: "none", color: theme.bg, borderRadius: 10, padding: "0 16px",
-                  cursor: "pointer", fontFamily: theme.body, fontSize: 14, fontWeight: 700 }}>
-                <Plus size={16} /> Add
-              </button>
-            </div>
-
-            <div style={{ fontFamily: theme.body, fontSize: 12.5, color: theme.sub, margin: "6px 2px 16px",
-              display: "flex", alignItems: "center", gap: 6 }}>
-              <Star size={13} fill={theme.accent} strokeWidth={0} color={theme.accent} />
-              Avg {catMeta.label.toLowerCase()} rating <b style={{ color: theme.ink }}>{avg}</b>
-              <span style={{ opacity: 0.6 }}>· {filtered.length} shown</span>
-            </div>
-
-            {filtered.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "40px 20px", color: theme.sub,
-                fontFamily: theme.body, fontSize: 14, border: `1px dashed ${theme.panelBorder}`, borderRadius: 12 }}>
-                {query || favOnly ? "Nothing matches that filter." : `No ${catMeta.label.toLowerCase()} yet — add the first above.`}
-              </div>
-            ) : (
-              filtered.map((e) => (
-                <EntryCard key={e.id} entry={e} theme={theme}
-                  onUpdate={(patch) => update(e.id, patch)} onDelete={() => remove(e.id)} />
-              ))
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  );
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      minHeight: "100vh",
+      background: theme.bg,
+      backgroundImage: theme.texture,
+      color: theme.ink
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      maxWidth: 660,
+      margin: "0 auto",
+      padding: "20px 18px 60px"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: 20
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onBack,
+    style: {
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 6,
+      background: "none",
+      border: `1px solid ${theme.panelBorder}`,
+      color: theme.sub,
+      borderRadius: 8,
+      padding: "6px 12px",
+      cursor: "pointer",
+      fontFamily: theme.body,
+      fontSize: 13
+    }
+  }, /*#__PURE__*/React.createElement(ChevronLeft, {
+    size: 15
+  }), " All films"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 6,
+      fontFamily: theme.body,
+      fontSize: 12,
+      color: theme.sub,
+      opacity: saving ? 1 : 0.5,
+      transition: "opacity .2s"
+    }
+  }, /*#__PURE__*/React.createElement(Cloud, {
+    size: 14,
+    color: saving ? theme.accent : theme.sub
+  }), " ", saving ? "Saving…" : "Saved")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 4,
+      fontFamily: theme.body,
+      fontSize: 12,
+      letterSpacing: 3,
+      textTransform: "uppercase",
+      color: theme.accent2
+    }
+  }, film.year), /*#__PURE__*/React.createElement("h1", {
+    style: {
+      fontFamily: theme.display,
+      fontSize: 46,
+      margin: "0 0 6px",
+      fontWeight: 700,
+      textTransform: film.upper ? "uppercase" : "none",
+      letterSpacing: film.upper ? 1 : 0,
+      color: theme.ink,
+      textShadow: theme.glow,
+      lineHeight: 1
+    }
+  }, film.title), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontFamily: theme.display,
+      fontStyle: "italic",
+      color: theme.sub,
+      margin: "0 0 14px",
+      fontSize: 17
+    }
+  }, film.tagline), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexWrap: "wrap",
+      gap: 6,
+      marginBottom: 14
+    }
+  }, film.genres.map(g => /*#__PURE__*/React.createElement("span", {
+    key: g,
+    style: {
+      background: "rgba(0,0,0,0.3)",
+      border: `1px solid ${theme.panelBorder}`,
+      color: theme.accent2,
+      borderRadius: 20,
+      padding: "3px 12px",
+      fontFamily: theme.body,
+      fontSize: 12,
+      letterSpacing: 0.3
+    }
+  }, g))), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontFamily: theme.body,
+      fontSize: 14,
+      lineHeight: 1.6,
+      color: theme.ink,
+      opacity: 0.9,
+      margin: "0 0 18px",
+      background: "rgba(0,0,0,0.2)",
+      borderLeft: `3px solid ${theme.accent}`,
+      borderRadius: "0 8px 8px 0",
+      padding: "12px 14px"
+    }
+  }, film.synopsis), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 12,
+      marginBottom: 18,
+      background: theme.panel,
+      border: `1px solid ${theme.panelBorder}`,
+      borderRadius: 12,
+      padding: "12px 16px"
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontFamily: theme.body,
+      fontSize: 13,
+      color: theme.sub
+    }
+  }, "Overall film"), /*#__PURE__*/React.createElement(Stars, {
+    value: data.filmRating || 0,
+    onChange: r => persist({
+      ...data,
+      filmRating: r === data.filmRating ? 0 : r
+    }),
+    accent: theme.accent,
+    size: 22
+  })), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowStats(s => !s),
+    style: {
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 6,
+      background: showStats ? theme.accent : theme.panel,
+      border: `1px solid ${showStats ? theme.accent : theme.panelBorder}`,
+      color: showStats ? theme.bg : theme.ink,
+      borderRadius: 10,
+      padding: "8px 14px",
+      cursor: "pointer",
+      fontFamily: theme.body,
+      fontSize: 13,
+      fontWeight: 600,
+      marginBottom: 18
+    }
+  }, /*#__PURE__*/React.createElement(BarChart3, {
+    size: 15
+  }), " ", showStats ? "Hide" : "Show", " stats dashboard"), showStats && /*#__PURE__*/React.createElement(Dashboard, {
+    data: data,
+    theme: theme
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8,
+      marginBottom: 16
+    }
+  }, CATEGORIES.map(c => {
+    const Icon = c.icon;
+    const on = activeCat === c.key;
+    const count = c.key === "moods" ? (data.moodsSelected || []).length : (data[c.key] || []).length;
+    return /*#__PURE__*/React.createElement("button", {
+      key: c.key,
+      onClick: () => {
+        setActiveCat(c.key);
+        setQuery("");
+        setFavOnly(false);
+      },
+      style: {
+        flex: 1,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 5,
+        background: on ? theme.accent : theme.panel,
+        border: `1px solid ${on ? theme.accent : theme.panelBorder}`,
+        color: on ? theme.bg : theme.ink,
+        borderRadius: 10,
+        padding: "12px 6px",
+        cursor: "pointer",
+        fontFamily: theme.body,
+        fontSize: 12.5,
+        fontWeight: 600,
+        transition: "all .15s",
+        boxShadow: on ? theme.glow : "none"
+      }
+    }, /*#__PURE__*/React.createElement(Icon, {
+      size: 18
+    }), " ", c.label, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 11,
+        opacity: 0.7
+      }
+    }, count));
+  })), isMoods ? /*#__PURE__*/React.createElement("div", {
+    className: "fadein"
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: theme.body,
+      fontSize: 13,
+      color: theme.sub,
+      margin: "2px 2px 14px",
+      lineHeight: 1.5
+    }
+  }, "Tap what you feel as you watch. ", moodSelected.length > 0 ? /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: theme.ink
+    }
+  }, moodSelected.length, " selected") : "Nothing selected yet."), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexWrap: "wrap",
+      gap: 8,
+      marginBottom: 18
+    }
+  }, moodPills.map(m => {
+    const on = moodSelected.includes(m);
+    const custom = moodCustom.includes(m) && !SHARED_MOODS.includes(m);
+    return /*#__PURE__*/React.createElement("button", {
+      key: m,
+      onClick: () => toggleMood(m),
+      style: {
+        background: on ? theme.accent : theme.panel,
+        border: `1px solid ${on ? theme.accent : custom ? theme.accent2 : theme.panelBorder}`,
+        color: on ? theme.bg : theme.ink,
+        borderRadius: 22,
+        padding: "8px 16px",
+        cursor: "pointer",
+        fontFamily: theme.body,
+        fontSize: 14,
+        fontWeight: on ? 700 : 500,
+        letterSpacing: 0.2,
+        boxShadow: on ? theme.glow : "none",
+        transition: "all .13s",
+        transform: on ? "translateY(-1px)" : "none"
+      }
+    }, m);
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8,
+      marginBottom: 14
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    value: adding,
+    onChange: e => setAdding(e.target.value),
+    onKeyDown: e => e.key === "Enter" && addMood(),
+    placeholder: "Add your own mood…",
+    style: {
+      flex: 1,
+      background: theme.panel,
+      border: `1px solid ${theme.panelBorder}`,
+      borderRadius: 10,
+      color: theme.ink,
+      fontFamily: theme.body,
+      fontSize: 14,
+      padding: "11px 14px"
+    }
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: addMood,
+    style: {
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 5,
+      background: theme.accent,
+      border: "none",
+      color: theme.bg,
+      borderRadius: 10,
+      padding: "0 16px",
+      cursor: "pointer",
+      fontFamily: theme.body,
+      fontSize: 14,
+      fontWeight: 700
+    }
+  }, /*#__PURE__*/React.createElement(Plus, {
+    size: 16
+  }), " Add")), moodSelected.length > 0 && /*#__PURE__*/React.createElement("button", {
+    onClick: clearMoods,
+    style: {
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 6,
+      background: "none",
+      border: `1px solid ${theme.panelBorder}`,
+      color: theme.sub,
+      borderRadius: 10,
+      padding: "8px 14px",
+      cursor: "pointer",
+      fontFamily: theme.body,
+      fontSize: 13
+    }
+  }, /*#__PURE__*/React.createElement(X, {
+    size: 14
+  }), " Clear all selected")) : /*#__PURE__*/React.createElement("div", {
+    className: "fadein"
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8,
+      marginBottom: 14
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      position: "relative"
+    }
+  }, /*#__PURE__*/React.createElement(Search, {
+    size: 15,
+    color: theme.sub,
+    style: {
+      position: "absolute",
+      left: 12,
+      top: "50%",
+      transform: "translateY(-50%)"
+    }
+  }), /*#__PURE__*/React.createElement("input", {
+    value: query,
+    onChange: e => setQuery(e.target.value),
+    placeholder: `Search ${catMeta.label.toLowerCase()}…`,
+    style: {
+      width: "100%",
+      boxSizing: "border-box",
+      background: theme.panel,
+      border: `1px solid ${theme.panelBorder}`,
+      borderRadius: 10,
+      color: theme.ink,
+      fontFamily: theme.body,
+      fontSize: 13.5,
+      padding: "10px 12px 10px 34px"
+    }
+  })), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setFavOnly(f => !f),
+    "aria-label": "Favorites only",
+    style: {
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 5,
+      background: favOnly ? theme.accent : theme.panel,
+      border: `1px solid ${favOnly ? theme.accent : theme.panelBorder}`,
+      color: favOnly ? theme.bg : theme.sub,
+      borderRadius: 10,
+      padding: "0 14px",
+      cursor: "pointer",
+      fontFamily: theme.body,
+      fontSize: 13,
+      fontWeight: 600
+    }
+  }, /*#__PURE__*/React.createElement(Heart, {
+    size: 15,
+    fill: favOnly ? theme.bg : "none",
+    color: favOnly ? theme.bg : "currentColor"
+  }), " Faves")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8,
+      marginBottom: 8
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    value: adding,
+    onChange: e => setAdding(e.target.value),
+    onKeyDown: e => e.key === "Enter" && addEntry(),
+    placeholder: catMeta.prompt,
+    style: {
+      flex: 1,
+      background: theme.panel,
+      border: `1px solid ${theme.panelBorder}`,
+      borderRadius: 10,
+      color: theme.ink,
+      fontFamily: theme.body,
+      fontSize: 14,
+      padding: "11px 14px"
+    }
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: addEntry,
+    style: {
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 5,
+      background: theme.accent,
+      border: "none",
+      color: theme.bg,
+      borderRadius: 10,
+      padding: "0 16px",
+      cursor: "pointer",
+      fontFamily: theme.body,
+      fontSize: 14,
+      fontWeight: 700
+    }
+  }, /*#__PURE__*/React.createElement(Plus, {
+    size: 16
+  }), " Add")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: theme.body,
+      fontSize: 12.5,
+      color: theme.sub,
+      margin: "6px 2px 16px",
+      display: "flex",
+      alignItems: "center",
+      gap: 6
+    }
+  }, /*#__PURE__*/React.createElement(Star, {
+    size: 13,
+    fill: theme.accent,
+    strokeWidth: 0,
+    color: theme.accent
+  }), "Avg ", catMeta.label.toLowerCase(), " rating ", /*#__PURE__*/React.createElement("b", {
+    style: {
+      color: theme.ink
+    }
+  }, avg), /*#__PURE__*/React.createElement("span", {
+    style: {
+      opacity: 0.6
+    }
+  }, "· ", filtered.length, " shown")), filtered.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: "center",
+      padding: "40px 20px",
+      color: theme.sub,
+      fontFamily: theme.body,
+      fontSize: 14,
+      border: `1px dashed ${theme.panelBorder}`,
+      borderRadius: 12
+    }
+  }, query || favOnly ? "Nothing matches that filter." : `No ${catMeta.label.toLowerCase()} yet — add the first above.`) : filtered.map(e => /*#__PURE__*/React.createElement(EntryCard, {
+    key: e.id,
+    entry: e,
+    theme: theme,
+    onUpdate: patch => update(e.id, patch),
+    onDelete: () => remove(e.id)
+  })))));
 }
 
 // ═══════════════════════════════════════════════════════════════
 // Home tile
 // ═══════════════════════════════════════════════════════════════
-function FilmTile({ film, uid, onOpen }) {
-  const { theme } = film;
+function FilmTile({
+  film,
+  uid,
+  onOpen
+}) {
+  const {
+    theme
+  } = film;
   const [meta, setMeta] = useState(null);
   useEffect(() => {
-    loadFilm(uid, film).then((d) => {
+    loadFilm(uid, film).then(d => {
       const all = [...d.characters, ...d.scenes];
-      setMeta({ count: all.length, filmRating: d.filmRating || 0, moods: (d.moodsSelected || []).length });
+      setMeta({
+        count: all.length,
+        filmRating: d.filmRating || 0,
+        moods: (d.moodsSelected || []).length
+      });
     });
   }, [film.id, uid]);
-  return (
-    <button onClick={onOpen}
-      style={{ position: "relative", textAlign: "left", cursor: "pointer",
-        background: theme.panel, backgroundImage: theme.texture,
-        border: `1px solid ${theme.panelBorder}`, borderRadius: 16, padding: 22,
-        overflow: "hidden", transition: "transform .18s, box-shadow .18s", minHeight: 190 }}
-      onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = theme.glow; }}
-      onMouseLeave={(e) => { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "none"; }}>
-      <div style={{ fontFamily: theme.body, fontSize: 11, letterSpacing: 3, textTransform: "uppercase",
-        color: theme.accent2, marginBottom: 8 }}>{film.year}</div>
-      <div style={{ fontFamily: theme.display, fontSize: 29, fontWeight: 700, color: theme.ink,
-        lineHeight: 1.02, textShadow: theme.glow, textTransform: film.upper ? "uppercase" : "none" }}>{film.title}</div>
-      <div style={{ fontFamily: theme.display, fontStyle: "italic", color: theme.sub, margin: "8px 0 10px", fontSize: 14 }}>
-        {film.tagline}
-      </div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-        {film.genres.slice(0, 3).map((g) => (
-          <span key={g} style={{ background: "rgba(0,0,0,0.28)", color: theme.sub, borderRadius: 20,
-            padding: "2px 9px", fontFamily: theme.body, fontSize: 11 }}>{g}</span>
-        ))}
-      </div>
-      <div style={{ position: "absolute", bottom: 16, right: 18, fontFamily: theme.body, fontSize: 12,
-        color: theme.sub, display: "flex", alignItems: "center", gap: 10 }}>
-        {meta && meta.filmRating > 0 && (
-          <span style={{ display: "flex", alignItems: "center", gap: 3, color: theme.accent }}>
-            <Star size={12} fill={theme.accent} strokeWidth={0} color={theme.accent} /> {meta.filmRating}
-          </span>
-        )}
-        <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          <Film size={13} color={theme.accent} /> {meta === null ? "…" : `${meta.count} items`}
-        </span>
-      </div>
-    </button>
-  );
+  return /*#__PURE__*/React.createElement("button", {
+    onClick: onOpen,
+    style: {
+      position: "relative",
+      textAlign: "left",
+      cursor: "pointer",
+      background: theme.panel,
+      backgroundImage: theme.texture,
+      border: `1px solid ${theme.panelBorder}`,
+      borderRadius: 16,
+      padding: 22,
+      overflow: "hidden",
+      transition: "transform .18s, box-shadow .18s",
+      minHeight: 190
+    },
+    onMouseEnter: e => {
+      e.currentTarget.style.transform = "translateY(-3px)";
+      e.currentTarget.style.boxShadow = theme.glow;
+    },
+    onMouseLeave: e => {
+      e.currentTarget.style.transform = "none";
+      e.currentTarget.style.boxShadow = "none";
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: theme.body,
+      fontSize: 11,
+      letterSpacing: 3,
+      textTransform: "uppercase",
+      color: theme.accent2,
+      marginBottom: 8
+    }
+  }, film.year), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: theme.display,
+      fontSize: 29,
+      fontWeight: 700,
+      color: theme.ink,
+      lineHeight: 1.02,
+      textShadow: theme.glow,
+      textTransform: film.upper ? "uppercase" : "none"
+    }
+  }, film.title), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: theme.display,
+      fontStyle: "italic",
+      color: theme.sub,
+      margin: "8px 0 10px",
+      fontSize: 14
+    }
+  }, film.tagline), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexWrap: "wrap",
+      gap: 5
+    }
+  }, film.genres.slice(0, 3).map(g => /*#__PURE__*/React.createElement("span", {
+    key: g,
+    style: {
+      background: "rgba(0,0,0,0.28)",
+      color: theme.sub,
+      borderRadius: 20,
+      padding: "2px 9px",
+      fontFamily: theme.body,
+      fontSize: 11
+    }
+  }, g))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "absolute",
+      bottom: 16,
+      right: 18,
+      fontFamily: theme.body,
+      fontSize: 12,
+      color: theme.sub,
+      display: "flex",
+      alignItems: "center",
+      gap: 10
+    }
+  }, meta && meta.filmRating > 0 && /*#__PURE__*/React.createElement("span", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 3,
+      color: theme.accent
+    }
+  }, /*#__PURE__*/React.createElement(Star, {
+    size: 12,
+    fill: theme.accent,
+    strokeWidth: 0,
+    color: theme.accent
+  }), " ", meta.filmRating), /*#__PURE__*/React.createElement("span", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 5
+    }
+  }, /*#__PURE__*/React.createElement(Film, {
+    size: 13,
+    color: theme.accent
+  }), " ", meta === null ? "…" : `${meta.count} items`)));
 }
 
 // ═══════════════════════════════════════════════════════════════
 // Sign-in screen
 // ═══════════════════════════════════════════════════════════════
-function SignIn({ onSignIn, error }) {
-  return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center",
-      justifyContent: "center", background: "#060608", color: "#f0eef2", padding: 24,
-      backgroundImage: "radial-gradient(circle at 15% 0%, rgba(255,45,85,0.06), transparent 40%), radial-gradient(circle at 85% 100%, rgba(46,166,255,0.06), transparent 40%)" }}>
-      <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 12, letterSpacing: 4,
-        textTransform: "uppercase", color: "#6a6a78", marginBottom: 10 }}>Personal Cinema Ledger</div>
-      <h1 style={{ fontFamily: "'Oswald', sans-serif", fontSize: 60, fontWeight: 700, margin: "0 0 14px",
-        letterSpacing: 0.5, lineHeight: 1, textAlign: "center" }}>THE VAULT</h1>
-      <p style={{ fontFamily: "'Inter', sans-serif", color: "#8a8a98", fontSize: 15, margin: "0 0 30px",
-        maxWidth: 420, textAlign: "center", lineHeight: 1.5 }}>
-        Quantify what you love and why — rate every character, scene, and mood across your favorite films.
-        Sign in to sync your ratings across all your devices.
-      </p>
-      <button onClick={onSignIn}
-        style={{ display: "inline-flex", alignItems: "center", gap: 10, background: "#f0eef2",
-          border: "none", color: "#060608", borderRadius: 12, padding: "13px 24px",
-          cursor: "pointer", fontFamily: "'Inter', sans-serif", fontSize: 15, fontWeight: 700 }}>
-        <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-        Sign in with Google
-      </button>
-      {error && <p style={{ color: "#ff6b6b", fontFamily: "'Inter', sans-serif", fontSize: 13, marginTop: 18 }}>{error}</p>}
-    </div>
-  );
+function SignIn({
+  onSignIn,
+  error
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      minHeight: "100vh",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      background: "#060608",
+      color: "#f0eef2",
+      padding: 24,
+      backgroundImage: "radial-gradient(circle at 15% 0%, rgba(255,45,85,0.06), transparent 40%), radial-gradient(circle at 85% 100%, rgba(46,166,255,0.06), transparent 40%)"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: "'Inter', sans-serif",
+      fontSize: 12,
+      letterSpacing: 4,
+      textTransform: "uppercase",
+      color: "#6a6a78",
+      marginBottom: 10
+    }
+  }, "Personal Cinema Ledger"), /*#__PURE__*/React.createElement("h1", {
+    style: {
+      fontFamily: "'Oswald', sans-serif",
+      fontSize: 60,
+      fontWeight: 700,
+      margin: "0 0 14px",
+      letterSpacing: 0.5,
+      lineHeight: 1,
+      textAlign: "center"
+    }
+  }, "THE VAULT"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontFamily: "'Inter', sans-serif",
+      color: "#8a8a98",
+      fontSize: 15,
+      margin: "0 0 30px",
+      maxWidth: 420,
+      textAlign: "center",
+      lineHeight: 1.5
+    }
+  }, "Quantify what you love and why — rate every character, scene, and mood across your favorite films. Sign in to sync your ratings across all your devices."), /*#__PURE__*/React.createElement("button", {
+    onClick: onSignIn,
+    style: {
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 10,
+      background: "#f0eef2",
+      border: "none",
+      color: "#060608",
+      borderRadius: 12,
+      padding: "13px 24px",
+      cursor: "pointer",
+      fontFamily: "'Inter', sans-serif",
+      fontSize: 15,
+      fontWeight: 700
+    }
+  }, /*#__PURE__*/React.createElement("svg", {
+    width: "18",
+    height: "18",
+    viewBox: "0 0 48 48"
+  }, /*#__PURE__*/React.createElement("path", {
+    fill: "#EA4335",
+    d: "M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
+  }), /*#__PURE__*/React.createElement("path", {
+    fill: "#4285F4",
+    d: "M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
+  }), /*#__PURE__*/React.createElement("path", {
+    fill: "#FBBC05",
+    d: "M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
+  }), /*#__PURE__*/React.createElement("path", {
+    fill: "#34A853",
+    d: "M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
+  })), "Sign in with Google"), error && /*#__PURE__*/React.createElement("p", {
+    style: {
+      color: "#ff6b6b",
+      fontFamily: "'Inter', sans-serif",
+      fontSize: 13,
+      marginTop: 18
+    }
+  }, error));
 }
 
 // ═══════════════════════════════════════════════════════════════
 // Main app
 // ═══════════════════════════════════════════════════════════════
 function App() {
-  const [user, setUser] = useState(null);        // Firebase user, or null (guest)
+  const [user, setUser] = useState(null); // Firebase user, or null (guest)
   const [authError, setAuthError] = useState("");
   const [open, setOpen] = useState(null);
   const [genreFilter, setGenreFilter] = useState(null);
-
   const cloudAvailable = hasCloud();
 
   // If Firebase is configured, listen for auth changes. If not, we just run
   // as a local guest — the app works fully either way.
   useEffect(() => {
     if (!cloudAvailable) return;
-    const unsub = window.VaultFirebase.onAuth((u) => setUser(u || null));
+    const unsub = window.VaultFirebase.onAuth(u => setUser(u || null));
     return () => unsub && unsub();
   }, [cloudAvailable]);
-
   const doSignIn = () => {
     setAuthError("");
     if (!cloudAvailable) return;
-    window.VaultFirebase.signIn().catch((e) => setAuthError(e.message || "Sign-in failed."));
+    window.VaultFirebase.signIn().catch(e => setAuthError(e.message || "Sign-in failed."));
   };
 
   // uid drives which storage bucket we read/write. Signed-in users get their
   // cloud/local data under their uid; everyone else shares the local "guest" bucket.
   const uid = user ? user.uid : "guest";
-
-  if (open) return <FilmView key={uid} film={FILMS[open]} uid={uid} onBack={() => setOpen(null)} />;
-
-  const films = Object.values(FILMS).filter((f) => !genreFilter || f.genres.includes(genreFilter));
-
-  return (
-    <div style={{ minHeight: "100vh", background: "#060608",
+  if (open) return /*#__PURE__*/React.createElement(FilmView, {
+    key: uid,
+    film: FILMS[open],
+    uid: uid,
+    onBack: () => setOpen(null)
+  });
+  const films = Object.values(FILMS).filter(f => !genreFilter || f.genres.includes(genreFilter));
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      minHeight: "100vh",
+      background: "#060608",
       backgroundImage: "radial-gradient(circle at 15% 0%, rgba(255,45,85,0.06), transparent 40%), radial-gradient(circle at 85% 100%, rgba(46,166,255,0.06), transparent 40%)",
-      color: "#f0eef2" }}>
-      <div style={{ maxWidth: 740, margin: "0 auto", padding: "40px 18px 60px" }}>
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 10 }}>
-          <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 12, letterSpacing: 4,
-            textTransform: "uppercase", color: "#6a6a78" }}>Personal Cinema Ledger</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-            {user ? (
-              <>
-                {user.photoURL && <img src={user.photoURL} alt="" style={{ width: 26, height: 26, borderRadius: "50%" }} referrerPolicy="no-referrer" />}
-                <button onClick={() => window.VaultFirebase.signOut()}
-                  style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "none",
-                    border: "1px solid #2a2a32", color: "#8a8a98", borderRadius: 8, padding: "5px 11px",
-                    cursor: "pointer", fontFamily: "'Inter', sans-serif", fontSize: 12.5 }}>
-                  <LogOut size={13} /> Sign out
-                </button>
-              </>
-            ) : cloudAvailable ? (
-              <button onClick={doSignIn}
-                style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none",
-                  border: "1px solid #2a2a32", color: "#8a8a98", borderRadius: 8, padding: "5px 12px",
-                  cursor: "pointer", fontFamily: "'Inter', sans-serif", fontSize: 12.5 }}>
-                <LogIn size={13} /> Sign in to sync
-              </button>
-            ) : null}
-          </div>
-        </div>
-
-        <h1 style={{ fontFamily: "'Oswald', sans-serif", fontSize: 52, fontWeight: 700, margin: "0 0 8px",
-          letterSpacing: 0.5, lineHeight: 1 }}>THE VAULT</h1>
-        <p style={{ fontFamily: "'Inter', sans-serif", color: "#8a8a98", fontSize: 15, margin: "0 0 26px",
-          maxWidth: 480, lineHeight: 1.5 }}>
-          Rate every character, scene, and mood, tag the patterns, and watch your taste take shape.
-          Each film comes pre-loaded with its real cast and key moments.
-          {cloudAvailable ? " Sign in to sync across devices." : ""}
-        </p>
-        {authError && <p style={{ color: "#ff6b6b", fontFamily: "'Inter', sans-serif", fontSize: 13, margin: "-14px 0 20px" }}>{authError}</p>}
-
-
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 28 }}>
-          <button onClick={() => setGenreFilter(null)}
-            style={{ background: genreFilter === null ? "#f0eef2" : "transparent",
-              color: genreFilter === null ? "#060608" : "#8a8a98",
-              border: "1px solid #2a2a32", borderRadius: 20, padding: "5px 14px",
-              cursor: "pointer", fontFamily: "'Inter', sans-serif", fontSize: 12.5, fontWeight: 600 }}>All</button>
-          {ALL_GENRES.map((g) => (
-            <button key={g} onClick={() => setGenreFilter(g === genreFilter ? null : g)}
-              style={{ background: genreFilter === g ? "#f0eef2" : "transparent",
-                color: genreFilter === g ? "#060608" : "#8a8a98",
-                border: "1px solid #2a2a32", borderRadius: 20, padding: "5px 14px",
-                cursor: "pointer", fontFamily: "'Inter', sans-serif", fontSize: 12.5, fontWeight: 600 }}>{g}</button>
-          ))}
-        </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(290px, 1fr))", gap: 16 }}>
-          {films.map((f) => <FilmTile key={f.id} film={f} uid={user.uid} onOpen={() => setOpen(f.id)} />)}
-        </div>
-        {films.length === 0 && (
-          <div style={{ textAlign: "center", padding: 40, color: "#6a6a78", fontFamily: "'Inter', sans-serif" }}>
-            No films in that genre yet.
-          </div>
-        )}
-      </div>
-    </div>
-  );
+      color: "#f0eef2"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      maxWidth: 740,
+      margin: "0 auto",
+      padding: "40px 18px 60px"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+      gap: 12,
+      marginBottom: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: "'Inter', sans-serif",
+      fontSize: 12,
+      letterSpacing: 4,
+      textTransform: "uppercase",
+      color: "#6a6a78"
+    }
+  }, "Personal Cinema Ledger"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 10,
+      flexShrink: 0
+    }
+  }, user ? /*#__PURE__*/React.createElement(React.Fragment, null, user.photoURL && /*#__PURE__*/React.createElement("img", {
+    src: user.photoURL,
+    alt: "",
+    style: {
+      width: 26,
+      height: 26,
+      borderRadius: "50%"
+    },
+    referrerPolicy: "no-referrer"
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: () => window.VaultFirebase.signOut(),
+    style: {
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 5,
+      background: "none",
+      border: "1px solid #2a2a32",
+      color: "#8a8a98",
+      borderRadius: 8,
+      padding: "5px 11px",
+      cursor: "pointer",
+      fontFamily: "'Inter', sans-serif",
+      fontSize: 12.5
+    }
+  }, /*#__PURE__*/React.createElement(LogOut, {
+    size: 13
+  }), " Sign out")) : cloudAvailable ? /*#__PURE__*/React.createElement("button", {
+    onClick: doSignIn,
+    style: {
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 6,
+      background: "none",
+      border: "1px solid #2a2a32",
+      color: "#8a8a98",
+      borderRadius: 8,
+      padding: "5px 12px",
+      cursor: "pointer",
+      fontFamily: "'Inter', sans-serif",
+      fontSize: 12.5
+    }
+  }, /*#__PURE__*/React.createElement(LogIn, {
+    size: 13
+  }), " Sign in to sync") : null)), /*#__PURE__*/React.createElement("h1", {
+    style: {
+      fontFamily: "'Oswald', sans-serif",
+      fontSize: 52,
+      fontWeight: 700,
+      margin: "0 0 8px",
+      letterSpacing: 0.5,
+      lineHeight: 1
+    }
+  }, "THE VAULT"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontFamily: "'Inter', sans-serif",
+      color: "#8a8a98",
+      fontSize: 15,
+      margin: "0 0 26px",
+      maxWidth: 480,
+      lineHeight: 1.5
+    }
+  }, "Rate every character, scene, and mood, tag the patterns, and watch your taste take shape. Each film comes pre-loaded with its real cast and key moments.", cloudAvailable ? " Sign in to sync across devices." : ""), authError && /*#__PURE__*/React.createElement("p", {
+    style: {
+      color: "#ff6b6b",
+      fontFamily: "'Inter', sans-serif",
+      fontSize: 13,
+      margin: "-14px 0 20px"
+    }
+  }, authError), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexWrap: "wrap",
+      gap: 7,
+      marginBottom: 28
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setGenreFilter(null),
+    style: {
+      background: genreFilter === null ? "#f0eef2" : "transparent",
+      color: genreFilter === null ? "#060608" : "#8a8a98",
+      border: "1px solid #2a2a32",
+      borderRadius: 20,
+      padding: "5px 14px",
+      cursor: "pointer",
+      fontFamily: "'Inter', sans-serif",
+      fontSize: 12.5,
+      fontWeight: 600
+    }
+  }, "All"), ALL_GENRES.map(g => /*#__PURE__*/React.createElement("button", {
+    key: g,
+    onClick: () => setGenreFilter(g === genreFilter ? null : g),
+    style: {
+      background: genreFilter === g ? "#f0eef2" : "transparent",
+      color: genreFilter === g ? "#060608" : "#8a8a98",
+      border: "1px solid #2a2a32",
+      borderRadius: 20,
+      padding: "5px 14px",
+      cursor: "pointer",
+      fontFamily: "'Inter', sans-serif",
+      fontSize: 12.5,
+      fontWeight: 600
+    }
+  }, g))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fit, minmax(290px, 1fr))",
+      gap: 16
+    }
+  }, films.map(f => /*#__PURE__*/React.createElement(FilmTile, {
+    key: f.id,
+    film: f,
+    uid: uid,
+    onOpen: () => setOpen(f.id)
+  }))), films.length === 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: "center",
+      padding: 40,
+      color: "#6a6a78",
+      fontFamily: "'Inter', sans-serif"
+    }
+  }, "No films in that genre yet.")));
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1294,19 +2860,39 @@ function App() {
 // with no Firebase at all; if Firebase is configured it layers on sync.
 // ═══════════════════════════════════════════════════════════════
 function boot() {
-  if (window.__vaultBooted) return;
-  window.__vaultBooted = true;
-  ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  var rootEl = document.getElementById("root");
+  if (!window.__vaultRoot) window.__vaultRoot = ReactDOM.createRoot(rootEl);
+  window.__vaultRoot.render(/*#__PURE__*/React.createElement(App, null));
 }
 
-// Boot as soon as this script has parsed. Don't wait on Firebase —
-// if it's still loading or unconfigured, the app just runs locally and
-// picks up cloud sync once (if) Firebase becomes ready.
+// Render immediately on local storage — never wait on Firebase.
 boot();
-window.addEventListener("vault-firebase-ready", () => {
-  // Firebase finished after first render; nothing to do — the auth
-  // listener in <App> will pick up the session. (No-op kept for clarity.)
-});
+// If Firebase finishes loading later, re-render so the "Sign in to sync"
+// option and cloud features light up.
+window.addEventListener("vault-firebase-ready", boot);
+
+} // end startVault
+
+// ─── Wait until React + ReactDOM are actually available, then start. ───
+// (CDN scripts can load slowly or out of order; this avoids the
+//  "React is not defined" crash by polling until they exist.)
+(function waitForReact(tries) {
+  if (window.React && window.ReactDOM && window.ReactDOM.createRoot) {
+    try { startVault(); }
+    catch (e) {
+      console.error(e);
+      document.getElementById("root").innerHTML =
+        '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;color:#ff6b6b;font-family:system-ui;padding:30px;text-align:center">Something went wrong starting the app. Check the console.</div>';
+    }
+    return;
+  }
+  if (tries > 100) { // ~10s
+    document.getElementById("root").innerHTML =
+      '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;color:#8a8a98;font-family:system-ui;padding:30px;text-align:center;line-height:1.6">Couldn\u2019t load React from the CDN.<br>Check your internet connection and reload.</div>';
+    return;
+  }
+  setTimeout(function () { waitForReact(tries + 1); }, 100);
+})(0);
 </script>
 </body>
 </html>
