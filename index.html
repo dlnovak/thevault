@@ -58,6 +58,7 @@
     appId: "PASTE_APP_ID",
   };
 
+  try {
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = getFirestore(app);
@@ -82,8 +83,21 @@
     },
   };
 
-  // Signal readiness so the app can boot once Firebase is wired up.
+  // Warn (visibly) if the config still has placeholder values.
+  if (String(firebaseConfig.apiKey).startsWith("PASTE_")) {
+    window.VaultConfigError = "Firebase isn't configured yet. Paste your firebaseConfig values into index.html (replace the PASTE_… placeholders).";
+  }
+
+  // Mark ready with a flag AND an event, so the app boots no matter which
+  // script finishes first (avoids a race between this module and Babel).
+  window.VaultReady = true;
   window.dispatchEvent(new Event("vault-firebase-ready"));
+} catch (err) {
+  console.error("Firebase init failed:", err);
+  window.VaultReady = true;
+  window.VaultConfigError = "Firebase failed to initialize: " + (err && err.message ? err.message : err);
+  window.dispatchEvent(new Event("vault-firebase-ready"));
+}
 </script>
 
 <script type="text/babel" data-presets="react">
@@ -1240,13 +1254,41 @@ function App() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// Boot — wait until the Firebase module bridge is ready
+// Boot — runs no matter whether Firebase or Babel finished first
 // ═══════════════════════════════════════════════════════════════
 function boot() {
-  ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  if (window.__vaultBooted) return;
+  window.__vaultBooted = true;
+  const root = ReactDOM.createRoot(document.getElementById("root"));
+  if (window.VaultConfigError || !window.VaultFirebase) {
+    root.render(
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
+        background: "#060608", color: "#f0eef2", fontFamily: "'Inter', system-ui, sans-serif", padding: 30 }}>
+        <div style={{ maxWidth: 460, textAlign: "center" }}>
+          <div style={{ fontFamily: "'Oswald', sans-serif", fontSize: 40, fontWeight: 700, marginBottom: 14, letterSpacing: 0.5 }}>THE VAULT</div>
+          <div style={{ background: "#1a0f14", border: "1px solid #3d1f2b", borderRadius: 12, padding: "18px 20px",
+            color: "#ffb3c1", fontSize: 14, lineHeight: 1.6 }}>
+            {window.VaultConfigError || "Firebase bridge didn't load. Check your network and that the Firebase CDN scripts aren't blocked."}
+          </div>
+          <div style={{ color: "#6a6a78", fontSize: 12.5, marginTop: 16, lineHeight: 1.6 }}>
+            Once you paste your real Firebase config into <code style={{ color: "#8a8a98" }}>index.html</code> and reload, this screen goes away.
+          </div>
+        </div>
+      </div>
+    );
+    return;
+  }
+  root.render(<App />);
 }
-if (window.VaultFirebase) boot();
-else window.addEventListener("vault-firebase-ready", boot, { once: true });
+
+// If Firebase already finished (flag set), boot now; otherwise wait for the event.
+// The setTimeout fallback covers the case where both scripts are already done.
+if (window.VaultReady) boot();
+else {
+  window.addEventListener("vault-firebase-ready", boot, { once: true });
+  // Safety net: if the event was somehow missed, boot after a short delay.
+  setTimeout(() => { if (window.VaultReady && !window.__vaultBooted) boot(); }, 1500);
+}
 </script>
 </body>
 </html>
