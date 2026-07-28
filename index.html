@@ -2667,28 +2667,49 @@ function SignIn({
 // Main app
 // ═══════════════════════════════════════════════════════════════
 function App() {
-  const [user, setUser] = useState(null); // Firebase user, or null (guest)
+  const [user, setUser] = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [authError, setAuthError] = useState("");
   const [open, setOpen] = useState(null);
   const [genreFilter, setGenreFilter] = useState(null);
   const cloudAvailable = hasCloud();
 
-  // If Firebase is configured, listen for auth changes. If not, we just run
-  // as a local guest — the app works fully either way.
+  // Watch auth state. Once Firebase reports in (signed in or not), mark checked.
   useEffect(() => {
-    if (!cloudAvailable) return;
-    const unsub = window.VaultFirebase.onAuth(u => setUser(u || null));
+    if (!cloudAvailable) { setAuthChecked(true); return; }
+    const unsub = window.VaultFirebase.onAuth(u => { setUser(u || null); setAuthChecked(true); });
     return () => unsub && unsub();
   }, [cloudAvailable]);
+
   const doSignIn = () => {
     setAuthError("");
     if (!cloudAvailable) return;
     window.VaultFirebase.signIn().catch(e => setAuthError(e.message || "Sign-in failed."));
   };
 
-  // uid drives which storage bucket we read/write. Signed-in users get their
-  // cloud/local data under their uid; everyone else shares the local "guest" bucket.
-  const uid = user ? user.uid : "guest";
+  // If Firebase never loaded, we can't gate on sign-in — show a clear message.
+  if (!cloudAvailable) {
+    return /*#__PURE__*/React.createElement("div", {
+      style: { minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
+        background: "#060608", color: "#8a8a98", fontFamily: "'Inter', sans-serif", padding: 30, textAlign: "center", lineHeight: 1.6 }
+    }, "Couldn't reach the sign-in service. Check your connection and reload.");
+  }
+
+  // Still determining whether someone is signed in — brief loading state.
+  if (!authChecked) {
+    return /*#__PURE__*/React.createElement("div", {
+      style: { minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
+        background: "#060608", color: "#6a6a78", fontFamily: "'Inter', sans-serif", gap: 10 }
+    }, /*#__PURE__*/React.createElement(Loader, { size: 18, color: "#8a8a98", style: { animation: "spin .9s linear infinite" } }), " Loading…");
+  }
+
+  // Not signed in → gate the whole app behind the sign-in screen.
+  if (!user) {
+    return /*#__PURE__*/React.createElement(SignIn, { onSignIn: doSignIn, error: authError });
+  }
+
+  // Signed in — everything below uses the real uid.
+  const uid = user.uid;
   if (open) return /*#__PURE__*/React.createElement(FilmView, {
     key: uid,
     film: FILMS[open],
