@@ -1,325 +1,297 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>The Vault — Personal Cinema Ledger</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Cinzel:wght@500;700&family=Cormorant+Garamond:ital,wght@0,600;1,600&family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#060608">
+<title>The Vault</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Cinzel:wght@500;700&family=Cormorant+Garamond:ital,wght@0,600;1,600&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
-  * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; min-height: 100%; background: #060608; }
-  #root { min-height: 100vh; }
-  ::-webkit-scrollbar { width: 10px; height: 10px; }
-  ::-webkit-scrollbar-track { background: #0a0a0e; }
-  ::-webkit-scrollbar-thumb { background: #2a2a35; border-radius: 5px; }
-  ::-webkit-scrollbar-thumb:hover { background: #3a3a48; }
-  input:focus, textarea:focus, button:focus-visible { outline: none; }
-  button { font-family: inherit; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .fadein { animation: fadein .3s ease; }
-  @keyframes fadein { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:var(--font-body,"Inter",system-ui,sans-serif);
+    -webkit-font-smoothing:antialiased;min-height:100vh;
+    background:var(--bg,#060608);color:var(--cream,#f0eef2);
+    transition:background .35s ease,color .35s ease;
+  }
+  @media (prefers-reduced-motion: reduce){ *{animation:none!important;transition-duration:.001s!important} }
+  a{color:inherit}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 18px 90px;position:relative;z-index:1}
+
+  /* ===== base (home / neutral) ===== */
+  body[data-theme="vault"]{
+    --bg:#060608; --panel:#14141b; --panel-2:#1b1b24; --line:#2a2a35;
+    --accent:#8fb4ff; --accent-2:#c9d6ff; --accent-ink:#0a1120; --mute:#8a8a98; --cream:#f0eef2;
+    --red:#ff6b7a;
+    --font-display:"Oswald",sans-serif; --font-body:"Inter",system-ui,sans-serif;
+    --atmos:radial-gradient(1000px 500px at 15% -10%, rgba(255,45,85,.06), transparent 45%),radial-gradient(900px 500px at 85% 110%, rgba(46,166,255,.06), transparent 45%);
+  }
+  /* ===== per-film themes ===== */
+  body[data-theme="roadhouse"]{--bg:#0a0608;--panel:#1a0f14;--panel-2:#231419;--line:#3d1f2b;--accent:#ff2d55;--accent-2:#00e0d0;--accent-ink:#0a0608;--mute:#a97e83;--cream:#f3e4d8;--red:#ff2d55;--font-display:"Oswald",sans-serif;--font-body:"Inter",sans-serif;--atmos:radial-gradient(1000px 520px at 20% -5%,rgba(255,45,85,.13),transparent 55%),radial-gradient(700px 700px at 100% 100%,rgba(0,224,208,.09),transparent 60%);}
+  body[data-theme="karatekid"]{--bg:#0d1410;--panel:#152019;--panel-2:#1c2a22;--line:#2c4234;--accent:#e8b13d;--accent-2:#c0392b;--accent-ink:#0d1410;--mute:#9db89f;--cream:#f4efe4;--red:#c0392b;--font-display:"Cinzel",Georgia,serif;--font-body:"Inter",sans-serif;--atmos:radial-gradient(1000px 520px at 80% -5%,rgba(232,177,61,.14),transparent 55%),radial-gradient(700px 700px at 0% 100%,rgba(192,57,43,.10),transparent 60%);}
+  body[data-theme="returntooz"]{--bg:#0a0a12;--panel:#141327;--panel-2:#1b1a33;--line:#2e2a52;--accent:#8b6fd6;--accent-2:#4ecb8f;--accent-ink:#0a0a12;--mute:#9a92c4;--cream:#e9e4f5;--red:#ff6b7a;--font-display:"Cormorant Garamond",Georgia,serif;--font-body:"Inter",sans-serif;--atmos:radial-gradient(1000px 520px at 30% -5%,rgba(139,111,214,.16),transparent 55%),radial-gradient(700px 700px at 100% 100%,rgba(78,203,143,.09),transparent 60%);}
+  body[data-theme="topgun"]{--bg:#080a0f;--panel:#0f1620;--panel-2:#141d2a;--line:#1f3346;--accent:#ff8a1e;--accent-2:#2ea6ff;--accent-ink:#080a0f;--mute:#7d97ad;--cream:#eaf1f8;--red:#ff6b7a;--font-display:"Oswald",sans-serif;--font-body:"Inter",sans-serif;--atmos:linear-gradient(180deg,rgba(46,166,255,.08),transparent 30%),radial-gradient(700px 600px at 75% 100%,rgba(255,138,30,.13),transparent 55%);}
+  body[data-theme="flightnavigator"]{--bg:#070b12;--panel:#0e1826;--panel-2:#132234;--line:#1e3350;--accent:#3ad6e0;--accent-2:#c9a2ff;--accent-ink:#070b12;--mute:#7d95b3;--cream:#e6f0fb;--red:#ff6b7a;--font-display:"Oswald",sans-serif;--font-body:"Inter",sans-serif;--atmos:radial-gradient(1000px 520px at 25% -5%,rgba(58,214,224,.13),transparent 55%),radial-gradient(700px 700px at 100% 100%,rgba(201,162,255,.10),transparent 60%);}
+  body[data-theme="comingtoamerica"]{--bg:#100a04;--panel:#211609;--panel-2:#2b1e0d;--line:#453218;--accent:#f0b429;--accent-2:#e0592a;--accent-ink:#100a04;--mute:#c2a575;--cream:#faf0dc;--red:#e0592a;--font-display:"Cinzel",Georgia,serif;--font-body:"Inter",sans-serif;--atmos:radial-gradient(1000px 520px at 80% -5%,rgba(240,180,41,.15),transparent 55%),radial-gradient(700px 700px at 0% 100%,rgba(224,89,42,.10),transparent 60%);}
+  body[data-theme="karatekid2"]{--bg:#0c1212;--panel:#132020;--panel-2:#1a2b2b;--line:#264040;--accent:#e0a53d;--accent-2:#3fa9a0;--accent-ink:#0c1212;--mute:#94b3ac;--cream:#eef4f0;--red:#ff6b7a;--font-display:"Cinzel",Georgia,serif;--font-body:"Inter",sans-serif;--atmos:radial-gradient(1000px 520px at 78% -5%,rgba(224,165,61,.13),transparent 55%),radial-gradient(700px 700px at 0% 100%,rgba(63,169,160,.10),transparent 60%);}
+  body[data-theme="karatekid3"]{--bg:#120c0c;--panel:#201414;--panel-2:#2b1a1a;--line:#3f2626;--accent:#d63f3f;--accent-2:#e0a53d;--accent-ink:#120c0c;--mute:#b58f8a;--cream:#f4e9e6;--red:#d63f3f;--font-display:"Cinzel",Georgia,serif;--font-body:"Inter",sans-serif;--atmos:radial-gradient(1000px 520px at 80% -5%,rgba(214,63,63,.14),transparent 55%),radial-gradient(700px 700px at 0% 100%,rgba(224,165,61,.09),transparent 60%);}
+  body[data-theme="troopbeverlyhills"]{--bg:#120810;--panel:#22111c;--panel-2:#2d1826;--line:#472138;--accent:#ff5fa2;--accent-2:#ffd24a;--accent-ink:#120810;--mute:#c48eae;--cream:#fceaf4;--red:#ff5fa2;--font-display:"Oswald",sans-serif;--font-body:"Inter",sans-serif;--atmos:radial-gradient(1000px 520px at 22% -5%,rgba(255,95,162,.15),transparent 55%),radial-gradient(700px 700px at 86% 100%,rgba(255,210,74,.11),transparent 60%);}
+  body[data-theme="adventuresbabysitting"]{--bg:#080b14;--panel:#101728;--panel-2:#161f34;--line:#233150;--accent:#ff6b4a;--accent-2:#4ac6ff;--accent-ink:#080b14;--mute:#8497bd;--cream:#e8eefb;--red:#ff6b4a;--font-display:"Oswald",sans-serif;--font-body:"Inter",sans-serif;--atmos:linear-gradient(180deg,rgba(74,198,255,.08),transparent 30%),radial-gradient(700px 600px at 78% 100%,rgba(255,107,74,.13),transparent 55%);}
+
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;background:var(--atmos,transparent);opacity:.9;transition:background .35s}
+
+  /* ===== header ===== */
+  header.top{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(7px);border-bottom:1px solid var(--line);transition:background .35s,border-color .35s}
+  .top-inner{max-width:1080px;margin:0 auto;padding:14px 18px;display:flex;align-items:center;gap:14px}
+  .logo{font-family:var(--font-display);font-weight:700;letter-spacing:.08em;font-size:22px;line-height:1;cursor:pointer;user-select:none;display:flex;align-items:center;gap:9px;text-transform:uppercase}
+  .logo .mark{width:22px;height:22px;flex:none;position:relative}
+  .logo .mark i{position:absolute;inset:0;border:2.5px solid var(--accent);border-radius:6px}
+  .logo .mark i:nth-child(2){inset:5px;border-color:var(--accent-2);border-radius:3px;opacity:.8}
+  .tagline{color:var(--mute);font-size:10.5px;letter-spacing:.24em;text-transform:uppercase}
+  .spacer{flex:1}
+
+  .crumbs{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--mute);margin:22px 0 6px}
+  .crumbs b{color:var(--cream);font-weight:600}
+  .crumbs .sep{opacity:.5}
+  .crumb-btn{background:none;border:none;color:var(--accent);cursor:pointer;font-size:13px;padding:0;font-family:inherit}
+  .crumb-btn:hover{text-decoration:underline}
+
+  h1.page{font-family:var(--font-display);font-size:38px;margin:6px 0 2px;letter-spacing:.01em;font-weight:700;line-height:1.03}
+  .sub{color:var(--mute);font-size:14px;margin-bottom:18px;line-height:1.5}
+  .fieldlabel{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--mute);margin:22px 0 10px}
+  .fieldlabel:first-child{margin-top:0}
+
+  .pills{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 26px}
+  .pill{border:1px solid var(--line);background:var(--panel);color:var(--cream);border-radius:999px;padding:7px 14px;font-size:12.5px;letter-spacing:.03em;cursor:pointer;transition:.15s;font-family:inherit;display:inline-flex;align-items:center;gap:7px}
+  .pill:hover{border-color:var(--accent)}
+  .pill.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700}
+  .pill .cnt{opacity:.55;font-size:11px}
+  .pill.on .cnt{opacity:.8}
+
+  /* ===== film cards ===== */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+  .card{position:relative;border:1px solid var(--cardline,var(--line));border-radius:16px;background:var(--cardbg,linear-gradient(180deg,var(--panel-2),var(--panel)));padding:20px;cursor:pointer;transition:.16s;overflow:hidden;min-height:190px}
+  .card:hover{transform:translateY(-3px);border-color:var(--cardaccent);box-shadow:0 16px 36px -18px var(--cardglow)}
+  .card .yr{font-size:11px;letter-spacing:.16em;color:var(--cardaccent2);text-transform:uppercase;font-weight:600}
+  .card h3{font-family:var(--carddisplay);margin:9px 0 8px;font-size:26px;line-height:1.03;font-weight:700;color:var(--cardink);text-shadow:0 0 22px var(--cardglow);text-transform:var(--cardupper,none)}
+  .card .tagline{font-family:var(--carddisplay);font-style:italic;color:var(--cardmute);font-size:14px;margin:0 0 12px;letter-spacing:0;text-transform:none}
+  .card .tagrow{display:flex;gap:6px;flex-wrap:wrap}
+  .microtag{font-size:10.5px;border-radius:999px;padding:3px 9px;color:var(--cardmute);background:rgba(0,0,0,.28)}
+  .card .cardmeta{position:absolute;bottom:16px;right:18px;font-size:12px;color:var(--cardmute);display:flex;align-items:center;gap:10px}
+  .card .cardmeta .rt{display:flex;align-items:center;gap:3px;color:var(--cardaccent)}
+  .addcard{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;border-style:dashed;color:var(--mute);text-align:center;background:none}
+  .addcard .plus{font-size:30px;color:var(--accent)}
+  .addcard span{font-size:12.5px;max-width:170px}
+
+  .stat-row{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 24px}
+  .stat{border:1px solid var(--line);background:var(--panel);border-radius:12px;padding:12px 16px;min-width:92px}
+  .stat b{display:block;font-family:var(--font-display);font-size:24px;font-weight:700;color:var(--accent)}
+  .stat span{font-size:11px;color:var(--mute);letter-spacing:.08em;text-transform:uppercase}
+
+  /* ===== tabs ===== */
+  .tabs{display:flex;gap:6px;margin:4px 0 22px;border-bottom:1px solid var(--line)}
+  .tab{background:none;border:none;font-family:inherit;color:var(--mute);cursor:pointer;font-size:14px;padding:11px 4px;margin-right:18px;border-bottom:2px solid transparent;transition:.14s;letter-spacing:.02em}
+  .tab:hover{color:var(--cream)}
+  .tab.on{color:var(--accent);border-bottom-color:var(--accent);font-weight:700}
+  .tab .n{font-size:11px;color:var(--mute);margin-left:5px}
+
+  /* ===== entry list (characters + scenes) ===== */
+  .search{margin:0 0 16px;position:relative}
+  .search input{width:100%;background:var(--panel);border:1px solid var(--line);border-radius:12px;color:var(--cream);font-family:inherit;font-size:14px;padding:12px 14px 12px 40px;outline:none}
+  .search input:focus{border-color:var(--accent)}
+  .search svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);opacity:.5}
+  .addrow{display:flex;gap:8px;margin-bottom:16px}
+  .addrow input{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:12px;color:var(--cream);font-family:inherit;font-size:14px;padding:12px 14px;outline:none}
+  .addrow input:focus{border-color:var(--accent)}
+  .btn-add{border:none;border-radius:12px;padding:0 18px;background:var(--accent);color:var(--accent-ink);font-family:inherit;font-weight:700;font-size:14px;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+
+  .entrylist{display:flex;flex-direction:column;gap:10px}
+  .entry{border:1px solid var(--line);background:var(--panel);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:9px}
+  .entry.fav{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+  .entry-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+  .entry-name{font-family:var(--font-display);font-size:20px;color:var(--cream);font-weight:600;line-height:1.15}
+  .entry-actions{display:flex;gap:6px;flex:none}
+  .iconbtn{background:none;border:none;cursor:pointer;padding:2px;line-height:0;color:var(--mute);transition:.14s}
+  .iconbtn:hover{color:var(--accent)}
+  .iconbtn.on{color:var(--accent)}
+  .iconbtn.del:hover{color:var(--red)}
+  .entry-note-preview{font-size:12.5px;color:var(--mute);line-height:1.45}
+  .stars{display:flex;gap:3px}
+  .star{background:none;border:none;cursor:pointer;padding:1px;line-height:0;font-size:18px;color:rgba(255,255,255,.18);transition:.12s}
+  .star.on{color:var(--accent)}
+  .star:hover{transform:scale(1.1)}
+  .tagchips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .tchip{display:inline-flex;align-items:center;gap:4px;background:rgba(0,0,0,.3);border:1px solid var(--line);color:var(--accent-2);border-radius:999px;padding:2px 8px 2px 10px;font-size:11.5px}
+  .tchip button{background:none;border:none;color:var(--mute);cursor:pointer;padding:0;line-height:0;font-size:12px}
+
+  /* ===== moods ===== */
+  .moodgrid{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
+  .mood{background:var(--panel);border:1px solid var(--line);color:var(--cream);border-radius:22px;padding:8px 16px;cursor:pointer;font-family:inherit;font-size:14px;transition:.13s}
+  .mood:hover{border-color:var(--accent-2)}
+  .mood.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700;transform:translateY(-1px)}
+  .mood.custom{border-color:var(--accent-2)}
+
+  .empty{color:var(--mute);text-align:center;padding:50px 20px;border:1px dashed var(--line);border-radius:16px}
+
+  /* ===== drawer (entry detail) ===== */
+  .scrim{position:fixed;inset:0;background:rgba(2,3,4,.72);z-index:200;opacity:0;pointer-events:none;transition:.2s}
+  .scrim.open{opacity:1;pointer-events:auto}
+  .drawer{position:fixed;z-index:201;right:0;top:0;height:100%;width:min(460px,100%);background:linear-gradient(180deg,var(--panel-2),var(--panel));border-left:1px solid var(--line);transform:translateX(100%);transition:transform .24s cubic-bezier(.3,.8,.3,1);display:flex;flex-direction:column}
+  .drawer.open{transform:none}
+  .drawer .dhead{padding:20px 20px 14px;border-bottom:1px solid var(--line);position:relative}
+  .drawer .eyebrow{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent-2)}
+  .drawer h2{font-family:var(--font-display);margin:6px 0 0;font-size:24px;line-height:1.15;font-weight:700}
+  .drawer .dbody{padding:20px;overflow-y:auto;flex:1}
+  .drawer .x{position:absolute;top:16px;right:16px;background:none;border:1px solid var(--line);color:var(--cream);width:34px;height:34px;border-radius:9px;cursor:pointer;font-size:16px;line-height:1}
+  .drawer .x:hover{border-color:var(--red);color:var(--red)}
+  textarea{width:100%;background:var(--panel);border:1px solid var(--line);border-radius:12px;color:var(--cream);font-family:inherit;font-size:14px;padding:12px;min-height:90px;resize:vertical;outline:none;line-height:1.5}
+  textarea:focus{border-color:var(--accent)}
+  .kwwrap{display:flex;flex-wrap:wrap;gap:7px;align-items:center;border:1px solid var(--line);background:var(--panel);border-radius:12px;padding:9px;min-height:46px}
+  .kwwrap input{flex:1;min-width:110px;background:none;border:none;outline:none;color:var(--cream);font-family:inherit;font-size:14px;padding:4px}
+  .drawer .dfoot{padding:16px 20px;border-top:1px solid var(--line);display:flex;gap:10px;align-items:center}
+  .btn{border:none;border-radius:11px;padding:13px 18px;font-family:inherit;font-weight:700;cursor:pointer;font-size:14px;transition:.14s}
+  .btn.save{background:var(--accent);color:var(--accent-ink);flex:1}
+  .btn.save:hover{filter:brightness(1.08)}
+  .btn.ghost{background:none;border:1px solid var(--line);color:var(--mute)}
+  .btn.ghost:hover{color:var(--red);border-color:var(--red)}
+  .saved-note{font-size:11px;color:var(--accent);opacity:0;transition:.2s}
+  .saved-note.show{opacity:1}
+  .bigstars{display:flex;gap:5px}
+  .bigstar{background:none;border:none;cursor:pointer;padding:2px;line-height:0;font-size:30px;color:rgba(255,255,255,.18);transition:.12s}
+  .bigstar.on{color:var(--accent)}
+
+  /* ===== overall film rating + dashboard ===== */
+  .filmrate{display:flex;align-items:center;gap:12px;margin:6px 0 18px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 16px}
+  .filmrate .lbl{font-size:13px;color:var(--mute)}
+  .synopsis{font-size:14px;line-height:1.6;color:var(--cream);opacity:.9;margin:0 0 18px;background:rgba(0,0,0,.2);border-left:3px solid var(--accent);border-radius:0 8px 8px 0;padding:12px 14px}
+  .dash{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:20px}
+  .dash h3{display:flex;align-items:center;gap:8px;margin:0 0 16px;font-family:var(--font-display);font-size:18px;font-weight:600}
+  .dash-nums{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+  .dash-num{text-align:center;background:rgba(0,0,0,.25);border-radius:10px;padding:12px 6px}
+  .dash-num b{display:block;font-family:var(--font-display);font-size:26px;color:var(--accent);font-weight:700}
+  .dash-num span{font-size:11px;color:var(--mute)}
+  .dash-lbl{font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--accent-2);margin-bottom:8px}
+  .dbar{margin-bottom:8px}
+  .dbar-top{display:flex;justify-content:space-between;font-size:12px;color:var(--mute);margin-bottom:3px}
+  .dbar-track{height:6px;background:rgba(0,0,0,.35);border-radius:4px;overflow:hidden}
+  .dbar-track>i{display:block;height:100%;background:var(--accent);border-radius:4px}
+  .dash-chips{display:flex;flex-wrap:wrap;gap:6px}
+  .dash-chip{background:rgba(0,0,0,.3);border:1px solid var(--line);color:var(--cream);border-radius:999px;padding:3px 11px;font-size:12px}
+  .dash-mood{background:var(--accent);color:var(--accent-ink);border-radius:999px;padding:3px 11px;font-size:12px;font-weight:600}
+  .toggle-dash{display:inline-flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line);color:var(--cream);border-radius:10px;padding:8px 14px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;margin-bottom:18px}
+  .toggle-dash.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+
+  footer.foot{color:var(--mute);font-size:11px;text-align:center;margin-top:40px;letter-spacing:.05em}
+
+  @media (max-width:560px){ h1.page{font-size:29px} .drawer{width:100%} }
+
+  /* ===== auth gate ===== */
+  #authgate{position:fixed;inset:0;z-index:500;display:flex;align-items:center;justify-content:center;padding:24px;background:radial-gradient(1000px 520px at 50% -5%,rgba(255,45,85,.07),transparent 55%),#060608}
+  #authgate.hide{display:none}
+  .authcard{max-width:380px;width:100%;text-align:center}
+  .authcard .eyebrow{font-size:12px;letter-spacing:.34em;text-transform:uppercase;color:#6a6a78;margin-bottom:12px}
+  .authcard .brand{font-family:"Oswald",sans-serif;font-weight:700;letter-spacing:.04em;font-size:52px;text-transform:uppercase;margin-bottom:12px;line-height:1}
+  .authcard p{color:#8a8a98;font-size:14px;margin:0 0 26px;line-height:1.5}
+  .gbtn{display:inline-flex;align-items:center;gap:11px;background:#f0eef2;color:#1f2430;border:none;border-radius:12px;padding:13px 22px;font-family:"Inter",sans-serif;font-size:15px;font-weight:600;cursor:pointer;transition:.14s;box-shadow:0 8px 24px -12px rgba(0,0,0,.7)}
+  .gbtn:hover{transform:translateY(-1px);box-shadow:0 12px 28px -12px rgba(0,0,0,.8)}
+  .gbtn svg{width:19px;height:19px;flex:none}
+  .autherr{color:#ff6b7a;font-size:12.5px;margin-top:16px;min-height:16px}
+  .authnote{color:#5a6373;font-size:11px;margin-top:22px}
+  .userchip{display:flex;align-items:center;gap:9px}
+  .userchip img{width:26px;height:26px;border-radius:50%;border:1px solid var(--line)}
+  .signout{background:none;border:1px solid var(--line);color:var(--mute);border-radius:8px;padding:6px 11px;font-family:inherit;font-size:12px;cursor:pointer;transition:.14s}
+  .signout:hover{border-color:var(--red);color:var(--red)}
 </style>
 </head>
-<body>
-<div id="root"></div>
+<body data-theme="vault">
 
-<!-- React only — no Babel, no in-browser transpiling. The app below is
-     already compiled to plain JavaScript, so it runs immediately. -->
-<script crossorigin src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
-<script crossorigin src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+<div id="authgate">
+  <div class="authcard">
+    <div class="eyebrow">Personal Cinema Ledger</div>
+    <div class="brand">The Vault</div>
+    <p>Rate every character, scene, and mood across your favorite films. Sign in with Google to sync across your devices.</p>
+    <button class="gbtn" id="googleBtn">
+      <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      Sign in with Google
+    </button>
+    <div class="autherr" id="autherr"></div>
+    <div class="authnote">Private to your Google account.</div>
+  </div>
+</div>
 
-<!-- OPTIONAL: Firebase sync. Leave the config as-is to run purely local
-     (browser storage). Fill it in later to sync across devices. This is a
-     module so it loads separately; the app does NOT wait on it. -->
+<header class="top">
+  <div class="top-inner">
+    <div class="logo" onclick="goHome()">
+      <span class="mark"><i></i><i></i></span>
+      <span>The Vault</span>
+    </div>
+    <span class="tagline">cinema ledger</span>
+    <div class="spacer"></div>
+    <div class="userchip" id="userchip" style="display:none"></div>
+  </div>
+</header>
+<div class="wrap" id="app"></div>
+
+<!-- entry detail drawer -->
+<div class="scrim" id="scrim" onclick="closeDrawer()"></div>
+<aside class="drawer" id="drawer" aria-hidden="true">
+  <button class="x" onclick="closeDrawer()" aria-label="Close">✕</button>
+  <div class="dhead"><div class="eyebrow" id="d-eyebrow"></div><h2 id="d-title"></h2></div>
+  <div class="dbody">
+    <div class="fieldlabel">Your rating</div>
+    <div class="bigstars" id="d-stars"></div>
+    <div class="fieldlabel">Why it lands / your take</div>
+    <textarea id="d-note" placeholder="What makes it work — a line, a moment, why it stuck with you."></textarea>
+    <div class="fieldlabel">Tags <span style="text-transform:none;letter-spacing:0">(type + Enter)</span></div>
+    <div class="kwwrap" id="d-kwwrap" onclick="document.getElementById('d-kwinput').focus()">
+      <input id="d-kwinput" placeholder="a theme, a vibe, a callback…" autocomplete="off">
+    </div>
+  </div>
+  <div class="dfoot">
+    <button class="btn save" onclick="saveEntry()">Save</button>
+    <button class="btn ghost" onclick="deleteEntry()">Delete</button>
+    <span class="saved-note" id="d-saved">Saved ✓</span>
+  </div>
+</aside>
+
 <script type="module">
-  try {
-    const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
-    const { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } =
-      await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
-    const { getFirestore, doc, getDoc, setDoc } =
-      await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-    // ─── PASTE YOUR FIREBASE CONFIG HERE (later) ───
-    const firebaseConfig = {
-      apiKey: "AIzaSyBDF7D70ctDVmngR7fSXAvNMElPLMzf4vM",
-      authDomain: "the-vault-cdac5.firebaseapp.com",
-      projectId: "the-vault-cdac5",
-      storageBucket: "the-vault-cdac5.firebasestorage.app",
-      messagingSenderId: "1019822722990",
-      appId: "1:1019822722990:web:31b764fe58fc459144c23f",
-    };
+/* ===== Firebase config ===== */
+const firebaseConfig = {
+  apiKey: "AIzaSyBDF7D70ctDVmngR7fSXAvNMElPLMzf4vM",
+  authDomain: "the-vault-cdac5.firebaseapp.com",
+  projectId: "the-vault-cdac5",
+  storageBucket: "the-vault-cdac5.firebasestorage.app",
+  messagingSenderId: "1019822722990",
+  appId: "1:1019822722990:web:31b764fe58fc459144c23f"
+};
 
-    if (String(firebaseConfig.apiKey).startsWith("PASTE_")) {
-      // Not configured yet — app runs locally. Nothing to wire up.
-      console.info("Firebase not configured; running on local storage.");
-    } else {
-      const app = initializeApp(firebaseConfig);
-      const auth = getAuth(app);
-      const db = getFirestore(app);
-      const provider = new GoogleAuthProvider();
-      window.VaultFirebase = {
-        signIn: () => signInWithPopup(auth, provider),
-        signOut: () => signOut(auth),
-        onAuth: (cb) => onAuthStateChanged(auth, cb),
-        loadFilm: async (uid, filmId) => {
-          const snap = await getDoc(doc(db, "users", uid, "films", filmId));
-          return snap.exists() ? snap.data() : null;
-        },
-        saveFilm: async (uid, filmId, data) => {
-          await setDoc(doc(db, "users", uid, "films", filmId), data, { merge: true });
-        },
-      };
-      window.dispatchEvent(new Event("vault-firebase-ready"));
-    }
-  } catch (err) {
-    console.error("Firebase optional layer failed; app still runs locally.", err);
-  }
-</script>
+const fbApp = initializeApp(firebaseConfig);
+const auth  = getAuth(fbApp);
+const db    = getFirestore(fbApp);
+const provider = new GoogleAuthProvider();
+let uid = null;
 
-<!-- The app (pre-compiled from JSX to plain JS) -->
-<script>
-function startVault() {
-const {
-  useState,
-  useEffect,
-  useCallback,
-  useMemo,
-  useRef
-} = React;
+/* ===== storage layer: users/{uid}/kv/{encodedKey} ===== */
+const keyToId = (k)=>encodeURIComponent(k);
+const userDoc = (k)=>doc(db,"users",uid,"kv",keyToId(k));
+const userCol = ()=>collection(db,"users",uid,"kv");
+async function sGet(key){ try{ const s=await getDoc(userDoc(key)); return s.exists()?s.data().v:null; }catch(e){ console.error("sGet",key,e); return null; } }
+async function sSet(key,value){ try{ await setDoc(userDoc(key),{k:key,v:value}); }catch(e){ console.error("sSet",key,e); } }
+async function sDel(key){ try{ await deleteDoc(userDoc(key)); }catch(e){ console.error("sDel",key,e); } }
+async function sList(prefix){ try{ const snap=await getDocs(userCol()); const out=[]; snap.forEach(d=>{ const k=d.data().k; if(k&&(!prefix||k.startsWith(prefix))) out.push(k); }); return out; }catch(e){ console.error("sList",prefix,e); return []; } }
 
-// ═══════════════════════════════════════════════════════════════
-// Inline SVG icons (replaces lucide-react for a no-dependency build)
-// ═══════════════════════════════════════════════════════════════
-const Ico = (paths, extra = {}) => ({
-  size = 18,
-  fill = "none",
-  color = "currentColor",
-  strokeWidth = 2,
-  style
-}) => /*#__PURE__*/React.createElement("svg", {
-  width: size,
-  height: size,
-  viewBox: "0 0 24 24",
-  fill: fill,
-  stroke: color,
-  strokeWidth: strokeWidth,
-  strokeLinecap: "round",
-  strokeLinejoin: "round",
-  style: style,
-  ...extra
-}, paths);
-const Star = Ico(/*#__PURE__*/React.createElement("polygon", {
-  points: "12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"
-}));
-const Plus = Ico(/*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("line", {
-  x1: "12",
-  y1: "5",
-  x2: "12",
-  y2: "19"
-}), /*#__PURE__*/React.createElement("line", {
-  x1: "5",
-  y1: "12",
-  x2: "19",
-  y2: "12"
-})));
-const Film = Ico(/*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("rect", {
-  x: "2",
-  y: "2",
-  width: "20",
-  height: "20",
-  rx: "2.18",
-  ry: "2.18"
-}), /*#__PURE__*/React.createElement("line", {
-  x1: "7",
-  y1: "2",
-  x2: "7",
-  y2: "22"
-}), /*#__PURE__*/React.createElement("line", {
-  x1: "17",
-  y1: "2",
-  x2: "17",
-  y2: "22"
-}), /*#__PURE__*/React.createElement("line", {
-  x1: "2",
-  y1: "12",
-  x2: "22",
-  y2: "12"
-}), /*#__PURE__*/React.createElement("line", {
-  x1: "2",
-  y1: "7",
-  x2: "7",
-  y2: "7"
-}), /*#__PURE__*/React.createElement("line", {
-  x1: "2",
-  y1: "17",
-  x2: "7",
-  y2: "17"
-}), /*#__PURE__*/React.createElement("line", {
-  x1: "17",
-  y1: "17",
-  x2: "22",
-  y2: "17"
-}), /*#__PURE__*/React.createElement("line", {
-  x1: "17",
-  y1: "7",
-  x2: "22",
-  y2: "7"
-})));
-const User = Ico(/*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("path", {
-  d: "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"
-}), /*#__PURE__*/React.createElement("circle", {
-  cx: "12",
-  cy: "7",
-  r: "4"
-})));
-const Clapperboard = Ico(/*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("path", {
-  d: "M20.2 6 3 11l-.9-2.4c-.3-1.1.3-2.2 1.3-2.5l13.5-4c1.1-.3 2.2.3 2.5 1.3Z"
-}), /*#__PURE__*/React.createElement("path", {
-  d: "m6.2 5.3 3.1 3.9"
-}), /*#__PURE__*/React.createElement("path", {
-  d: "m12.4 3.4 3.1 4"
-}), /*#__PURE__*/React.createElement("path", {
-  d: "M3 11h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"
-})));
-const Wind = Ico(/*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("path", {
-  d: "M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"
-}), /*#__PURE__*/React.createElement("path", {
-  d: "M9.6 4.6A2 2 0 1 1 11 8H2"
-}), /*#__PURE__*/React.createElement("path", {
-  d: "M12.6 19.4A2 2 0 1 0 14 16H2"
-})));
-const Trash2 = Ico(/*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("polyline", {
-  points: "3 6 5 6 21 6"
-}), /*#__PURE__*/React.createElement("path", {
-  d: "M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
-}), /*#__PURE__*/React.createElement("line", {
-  x1: "10",
-  y1: "11",
-  x2: "10",
-  y2: "17"
-}), /*#__PURE__*/React.createElement("line", {
-  x1: "14",
-  y1: "11",
-  x2: "14",
-  y2: "17"
-})));
-const ChevronLeft = Ico(/*#__PURE__*/React.createElement("polyline", {
-  points: "15 18 9 12 15 6"
-}));
-const X = Ico(/*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("line", {
-  x1: "18",
-  y1: "6",
-  x2: "6",
-  y2: "18"
-}), /*#__PURE__*/React.createElement("line", {
-  x1: "6",
-  y1: "6",
-  x2: "18",
-  y2: "18"
-})));
-const BarChart3 = Ico(/*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("path", {
-  d: "M3 3v18h18"
-}), /*#__PURE__*/React.createElement("path", {
-  d: "M18 17V9"
-}), /*#__PURE__*/React.createElement("path", {
-  d: "M13 17V5"
-}), /*#__PURE__*/React.createElement("path", {
-  d: "M8 17v-3"
-})));
-const Tag = Ico(/*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("path", {
-  d: "M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"
-}), /*#__PURE__*/React.createElement("line", {
-  x1: "7",
-  y1: "7",
-  x2: "7.01",
-  y2: "7"
-})));
-const Search = Ico(/*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("circle", {
-  cx: "11",
-  cy: "11",
-  r: "8"
-}), /*#__PURE__*/React.createElement("line", {
-  x1: "21",
-  y1: "21",
-  x2: "16.65",
-  y2: "16.65"
-})));
-const Award = Ico(/*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("circle", {
-  cx: "12",
-  cy: "8",
-  r: "6"
-}), /*#__PURE__*/React.createElement("path", {
-  d: "M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"
-})));
-const Heart = Ico(/*#__PURE__*/React.createElement("path", {
-  d: "M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"
-}));
-const LogIn = Ico(/*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("path", {
-  d: "M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"
-}), /*#__PURE__*/React.createElement("polyline", {
-  points: "10 17 15 12 10 7"
-}), /*#__PURE__*/React.createElement("line", {
-  x1: "15",
-  y1: "12",
-  x2: "3",
-  y2: "12"
-})));
-const LogOut = Ico(/*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("path", {
-  d: "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"
-}), /*#__PURE__*/React.createElement("polyline", {
-  points: "16 17 21 12 16 7"
-}), /*#__PURE__*/React.createElement("line", {
-  x1: "21",
-  y1: "12",
-  x2: "9",
-  y2: "12"
-})));
-const Loader = Ico(/*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("line", {
-  x1: "12",
-  y1: "2",
-  x2: "12",
-  y2: "6"
-}), /*#__PURE__*/React.createElement("line", {
-  x1: "12",
-  y1: "18",
-  x2: "12",
-  y2: "22"
-}), /*#__PURE__*/React.createElement("line", {
-  x1: "4.93",
-  y1: "4.93",
-  x2: "7.76",
-  y2: "7.76"
-}), /*#__PURE__*/React.createElement("line", {
-  x1: "16.24",
-  y1: "16.24",
-  x2: "19.07",
-  y2: "19.07"
-}), /*#__PURE__*/React.createElement("line", {
-  x1: "2",
-  y1: "12",
-  x2: "6",
-  y2: "12"
-}), /*#__PURE__*/React.createElement("line", {
-  x1: "18",
-  y1: "12",
-  x2: "22",
-  y2: "12"
-}), /*#__PURE__*/React.createElement("line", {
-  x1: "4.93",
-  y1: "19.07",
-  x2: "7.76",
-  y2: "16.24"
-}), /*#__PURE__*/React.createElement("line", {
-  x1: "16.24",
-  y1: "7.76",
-  x2: "19.07",
-  y2: "4.93"
-})));
-const Cloud = Ico(/*#__PURE__*/React.createElement("path", {
-  d: "M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"
-}));
+/* ===========================================================================
+   FILM DATA
+   =========================================================================== */
 const FILMS = {
   roadhouse: {
     id: "roadhouse",
@@ -1338,1582 +1310,367 @@ const FILMS = {
     }
   }
 };
-const CATEGORIES = [{
-  key: "characters",
-  label: "Characters",
-  icon: User,
-  prompt: "Add a character…"
-}, {
-  key: "scenes",
-  label: "Scenes",
-  icon: Clapperboard,
-  prompt: "Add a scene or moment…"
-}, {
-  key: "moods",
-  label: "Moods",
-  icon: Wind,
-  prompt: "Add a mood…"
-}];
 
-// One shared mood set for every film — tap to toggle during your watch
-const SHARED_MOODS = ["Joy", "Tension", "Nostalgia", "Awe", "Excitement", "Sadness", "Comfort", "Dread", "Triumph", "Heartbreak", "Laughter", "Chills", "Longing", "Adrenaline", "Warmth", "Melancholy", "Suspense", "Wonder", "Anger", "Fear", "Hope", "Bittersweet", "Cozy", "Empowered", "Tearful", "Giddy", "Tender", "Unsettled", "Cathartic", "Inspired"];
-const ALL_GENRES = [...new Set(Object.values(FILMS).flatMap(f => f.genres))].sort();
+const CATEGORIES = [
+  { key:"characters", label:"Characters", prompt:"Add a character…" },
+  { key:"scenes", label:"Scenes", prompt:"Add a scene or moment…" },
+  { key:"moods", label:"Moods", prompt:"Add a mood…" },
+];
+const SHARED_MOODS = [
+  "Joy","Tension","Nostalgia","Awe","Excitement","Sadness",
+  "Comfort","Dread","Triumph","Heartbreak","Laughter","Chills",
+  "Longing","Adrenaline","Warmth","Melancholy","Suspense","Wonder",
+  "Anger","Fear","Hope","Bittersweet","Cozy","Empowered",
+  "Tearful","Giddy","Tender","Unsettled","Cathartic","Inspired",
+];
+const ALL_GENRES = [...new Set(Object.values(FILMS).flatMap(f=>f.genres))].sort();
+const escapeHtml = (s)=>(s||"").replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
-// ═══════════════════════════════════════════════════════════════
-// Storage — works standalone on localStorage. If Firebase is
-// configured and the user is signed in, it also syncs to the cloud.
-// ═══════════════════════════════════════════════════════════════
-function seedData(film) {
-  const stamp = (arr, cat) => (arr || []).map((e, i) => ({
-    id: `${cat}-${i}-${Date.now()}`,
-    name: e.name,
-    note: e.note || "",
-    rating: 0,
-    favorite: false,
-    tags: []
-  }));
-  return {
-    characters: stamp(film.seed.characters, "c"),
-    scenes: stamp(film.seed.scenes, "s"),
-    moodsSelected: [],
-    moodsCustom: [],
-    filmRating: 0
-  };
+/* ===========================================================================
+   APP STATE
+   =========================================================================== */
+let filmData = {};          // filmId -> { characters:[], scenes:[], moodsSelected:[], moodsCustom:[], filmRating:0 }
+let view = { name:"home" };
+let genreFilter = null;
+let activeCat = "characters";
+let query = "";
+let favOnly = false;
+let showDash = false;
+let editing = null;         // { filmId, cat, id }
+let draft = null;
+
+/* ===========================================================================
+   STORAGE HELPERS
+   =========================================================================== */
+function seedFilm(film){
+  const stamp = (arr,cat)=> (arr||[]).map((e,i)=>({ id:`${cat}-${i}-${Date.now()}-${Math.random().toString(36).slice(2,6)}`, name:e.name, note:e.note||"", rating:0, favorite:false, tags:[] }));
+  return { characters:stamp(film.seed.characters,"c"), scenes:stamp(film.seed.scenes,"s"), moodsSelected:[], moodsCustom:[], filmRating:0 };
 }
-const LS_KEY = (uid, filmId) => `vault:${uid || "local"}:${filmId}`;
-const hasCloud = () => !!window.VaultFirebase;
-function lsLoad(uid, filmId) {
-  try {
-    const raw = localStorage.getItem(LS_KEY(uid, filmId));
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
+async function loadFilmData(filmId){
+  if(filmData[filmId]) return filmData[filmId];
+  let d = await sGet("v:film:"+filmId);
+  if(!d){ d = seedFilm(FILMS[filmId]); await sSet("v:film:"+filmId, d); }
+  filmData[filmId] = d;
+  return d;
 }
-function lsSave(uid, filmId, data) {
-  try {
-    localStorage.setItem(LS_KEY(uid, filmId), JSON.stringify(data));
-  } catch (e) {
-    console.error("local save failed", e);
-  }
+async function saveFilmData(filmId){ await sSet("v:film:"+filmId, filmData[filmId]); }
+
+/* ===========================================================================
+   BOOT
+   =========================================================================== */
+async function boot(){
+  // Pre-load every film's data (seeds on first run).
+  for(const id of Object.keys(FILMS)){ await loadFilmData(id); }
+  render();
 }
 
-// Load a film's data. Prefer cloud when available, else localStorage;
-// seed + persist on first access either way.
-async function loadFilm(uid, film) {
-  if (hasCloud() && uid) {
-    try {
-      const existing = await window.VaultFirebase.loadFilm(uid, film.id);
-      if (existing) {
-        lsSave(uid, film.id, existing);
-        return existing;
-      }
-    } catch (e) {
-      console.error("cloud load failed, falling back to local", e);
-    }
-  }
-  const local = lsLoad(uid, film.id);
-  if (local) return local;
-  const seeded = seedData(film);
-  lsSave(uid, film.id, seeded);
-  if (hasCloud() && uid) {
-    try {
-      await window.VaultFirebase.saveFilm(uid, film.id, seeded);
-    } catch (e) {
-      console.error("seed cloud save failed", e);
-    }
-  }
-  return seeded;
-}
-async function saveFilm(uid, id, data) {
-  lsSave(uid, id, data);
-  if (hasCloud() && uid) {
-    try {
-      await window.VaultFirebase.saveFilm(uid, id, data);
-    } catch (e) {
-      console.error("cloud save failed", e);
-    }
-  }
+function setTheme(t){ document.body.setAttribute("data-theme", t||"vault"); }
+
+/* ===========================================================================
+   NAV
+   =========================================================================== */
+function goHome(){ view={name:"home"}; genreFilter=null; setTheme("vault"); render(); }
+function openFilm(id){ view={name:"film",id}; activeCat="characters"; query=""; favOnly=false; showDash=false; setTheme(id); render(); }
+
+function render(){
+  const app=document.getElementById("app");
+  if(view.name==="home") app.innerHTML=renderHome();
+  else if(view.name==="film") app.innerHTML=renderFilm(view.id);
+  wire();
 }
 
-// ═══════════════════════════════════════════════════════════════
-// Star rating
-// ═══════════════════════════════════════════════════════════════
-function Stars({
-  value,
-  onChange,
-  accent,
-  size = 18
-}) {
-  const [hover, setHover] = useState(0);
-  return /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      gap: 2
-    }
-  }, [1, 2, 3, 4, 5].map(n => {
-    const active = (hover || value) >= n;
-    return /*#__PURE__*/React.createElement("button", {
-      key: n,
-      onClick: () => onChange(n === value ? 0 : n),
-      onMouseEnter: () => setHover(n),
-      onMouseLeave: () => setHover(0),
-      "aria-label": `Rate ${n} of 5`,
-      style: {
-        background: "none",
-        border: "none",
-        cursor: "pointer",
-        padding: 1,
-        lineHeight: 0,
-        color: active ? accent : "rgba(255,255,255,0.16)",
-        transition: "color .12s, transform .12s",
-        transform: active ? "scale(1.06)" : "scale(1)"
-      }
-    }, /*#__PURE__*/React.createElement(Star, {
-      size: size,
-      fill: active ? accent : "none",
-      strokeWidth: active ? 0 : 1.6,
-      color: active ? accent : "currentColor"
-    }));
-  }));
+/* ===========================================================================
+   HOME
+   =========================================================================== */
+function filmStats(id){
+  const d=filmData[id]; if(!d) return {count:0,filmRating:0};
+  return { count:(d.characters.length+d.scenes.length), filmRating:d.filmRating||0 };
+}
+function renderHome(){
+  const films=Object.values(FILMS).filter(f=>!genreFilter||f.genres.includes(genreFilter));
+  const pills=`<button class="pill ${!genreFilter?'on':''}" data-genre="">All</button>`+
+    ALL_GENRES.map(g=>`<button class="pill ${genreFilter===g?'on':''}" data-genre="${g}">${g}</button>`).join("");
+  const cards=films.map(f=>{
+    const th=f.theme; const st=filmStats(f.id);
+    const cvars=`--cardbg:linear-gradient(180deg,${th.panel},${th.bg});--cardline:${th.panelBorder};--cardaccent:${th.accent};--cardaccent2:${th.accent2};--cardink:${th.ink};--cardmute:${th.sub};--cardglow:${th.glow.replace(/^0 0 \d+px /,'').replace(')',',.5)').replace('rgba(','rgba(')};--carddisplay:${th.display};--cardupper:${f.upper?'uppercase':'none'}`;
+    return `<div class="card" data-film="${f.id}" style="${cvars}">
+      <div class="yr">${f.year}</div>
+      <h3>${escapeHtml(f.title)}</h3>
+      <div class="tagline">${escapeHtml(f.tagline)}</div>
+      <div class="tagrow">${f.genres.slice(0,3).map(g=>`<span class="microtag">${g}</span>`).join("")}</div>
+      <div class="cardmeta">${st.filmRating>0?`<span class="rt">★ ${st.filmRating}</span>`:''}<span>${st.count} items</span></div>
+    </div>`;
+  }).join("");
+  return `
+    <div class="crumbs"><b>Your vault</b></div>
+    <h1 class="page">The films you're dissecting</h1>
+    <div class="sub">Rate every character, scene, and mood — tag the patterns and watch your taste take shape. Each film comes pre-loaded with its real cast and key moments.</div>
+    <div class="pills">${pills}</div>
+    <div class="grid">${cards||'<div class="empty">No films in that genre.</div>'}</div>
+    <footer class="foot">THE VAULT · a personal cinema ledger</footer>`;
 }
 
-// ═══════════════════════════════════════════════════════════════
-// Tag editor
-// ═══════════════════════════════════════════════════════════════
-function TagRow({
-  tags,
-  onAdd,
-  onRemove,
-  theme
-}) {
-  const [input, setInput] = useState("");
-  const [open, setOpen] = useState(false);
-  const add = () => {
-    const t = input.trim();
-    if (t && !tags.includes(t)) onAdd(t);
-    setInput("");
-    setOpen(false);
-  };
-  return /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      flexWrap: "wrap",
-      gap: 6,
-      alignItems: "center"
-    }
-  }, tags.map(t => /*#__PURE__*/React.createElement("span", {
-    key: t,
-    style: {
-      display: "inline-flex",
-      alignItems: "center",
-      gap: 4,
-      background: "rgba(0,0,0,0.3)",
-      border: `1px solid ${theme.panelBorder}`,
-      color: theme.accent2,
-      borderRadius: 20,
-      padding: "2px 8px 2px 10px",
-      fontFamily: theme.body,
-      fontSize: 11.5
-    }
-  }, t, /*#__PURE__*/React.createElement("button", {
-    onClick: () => onRemove(t),
-    "aria-label": `Remove ${t}`,
-    style: {
-      background: "none",
-      border: "none",
-      color: theme.sub,
-      cursor: "pointer",
-      padding: 0,
-      lineHeight: 0,
-      display: "flex"
-    }
-  }, /*#__PURE__*/React.createElement(X, {
-    size: 12
-  })))), open ? /*#__PURE__*/React.createElement("input", {
-    autoFocus: true,
-    value: input,
-    onChange: e => setInput(e.target.value),
-    onKeyDown: e => {
-      if (e.key === "Enter") add();
-      if (e.key === "Escape") {
-        setOpen(false);
-        setInput("");
-      }
-    },
-    onBlur: add,
-    placeholder: "tag…",
-    style: {
-      background: "rgba(0,0,0,0.3)",
-      border: `1px solid ${theme.accent}`,
-      borderRadius: 20,
-      color: theme.ink,
-      fontFamily: theme.body,
-      fontSize: 11.5,
-      padding: "3px 10px",
-      width: 80
-    }
-  }) : /*#__PURE__*/React.createElement("button", {
-    onClick: () => setOpen(true),
-    style: {
-      display: "inline-flex",
-      alignItems: "center",
-      gap: 3,
-      background: "none",
-      border: `1px dashed ${theme.panelBorder}`,
-      color: theme.sub,
-      borderRadius: 20,
-      padding: "2px 9px",
-      cursor: "pointer",
-      fontFamily: theme.body,
-      fontSize: 11.5
-    }
-  }, /*#__PURE__*/React.createElement(Tag, {
-    size: 11
-  }), " tag"));
+/* ===========================================================================
+   FILM VIEW
+   =========================================================================== */
+function renderFilm(id){
+  const f=FILMS[id]; const d=filmData[id];
+  const catTabs=CATEGORIES.map(c=>{
+    const count = c.key==="moods" ? (d.moodsSelected||[]).length : (d[c.key]||[]).length;
+    return `<button class="tab ${activeCat===c.key?'on':''}" data-cat="${c.key}">${c.label}<span class="n">${count}</span></button>`;
+  }).join("");
+
+  let body;
+  if(activeCat==="moods") body=renderMoods(id);
+  else body=renderEntries(id, activeCat);
+
+  const filmStars=[1,2,3,4,5].map(n=>`<button class="bigstar ${(d.filmRating||0)>=n?'on':''}" data-filmstar="${n}">★</button>`).join("");
+
+  return `
+    <div class="crumbs"><button class="crumb-btn" onclick="goHome()">Vault</button><span class="sep">›</span><b>${escapeHtml(f.title)}</b></div>
+    <div class="yr" style="font-size:11px;letter-spacing:.16em;color:var(--accent-2);text-transform:uppercase;margin-bottom:4px">${f.year}</div>
+    <h1 class="page" style="${f.upper?'text-transform:uppercase;letter-spacing:.02em':''}">${escapeHtml(f.title)}</h1>
+    <div class="sub" style="font-family:var(--font-display);font-style:italic;font-size:17px;color:var(--mute)">${escapeHtml(f.tagline)}</div>
+    <div class="tagrow" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">${f.genres.map(g=>`<span class="microtag" style="color:var(--accent-2);background:rgba(0,0,0,.3);border:1px solid var(--line)">${g}</span>`).join("")}</div>
+    <p class="synopsis">${escapeHtml(f.synopsis)}</p>
+    <div class="filmrate"><span class="lbl">Overall film</span><div class="bigstars">${filmStars}</div></div>
+    <button class="toggle-dash ${showDash?'on':''}" id="dashToggle">▤ ${showDash?'Hide':'Show'} stats dashboard</button>
+    ${showDash?renderDash(id):''}
+    <div class="tabs">${catTabs}</div>
+    ${body}`;
 }
 
-// ═══════════════════════════════════════════════════════════════
-// Entry card (characters + scenes)
-// ═══════════════════════════════════════════════════════════════
-function EntryCard({
-  entry,
-  theme,
-  onUpdate,
-  onDelete
-}) {
-  return /*#__PURE__*/React.createElement("div", {
-    className: "fadein",
-    style: {
-      background: theme.panel,
-      border: `1px solid ${theme.panelBorder}`,
-      borderRadius: 12,
-      padding: "14px 16px",
-      marginBottom: 10,
-      display: "flex",
-      flexDirection: "column",
-      gap: 9
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      alignItems: "flex-start",
-      justifyContent: "space-between",
-      gap: 10
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontFamily: theme.display,
-      fontSize: 20,
-      color: theme.ink,
-      fontWeight: 600,
-      lineHeight: 1.15
-    }
-  }, entry.name), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      gap: 4,
-      flexShrink: 0
-    }
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => onUpdate({
-      favorite: !entry.favorite
-    }),
-    "aria-label": "Favorite",
-    style: {
-      background: "none",
-      border: "none",
-      cursor: "pointer",
-      padding: 2,
-      lineHeight: 0,
-      color: entry.favorite ? theme.accent : theme.sub,
-      opacity: entry.favorite ? 1 : 0.5
-    }
-  }, /*#__PURE__*/React.createElement(Heart, {
-    size: 16,
-    fill: entry.favorite ? theme.accent : "none",
-    color: entry.favorite ? theme.accent : "currentColor"
-  })), /*#__PURE__*/React.createElement("button", {
-    onClick: onDelete,
-    "aria-label": "Delete",
-    style: {
-      background: "none",
-      border: "none",
-      color: theme.sub,
-      cursor: "pointer",
-      padding: 2,
-      opacity: 0.5,
-      lineHeight: 0
-    }
-  }, /*#__PURE__*/React.createElement(Trash2, {
-    size: 16
-  })))), /*#__PURE__*/React.createElement(Stars, {
-    value: entry.rating,
-    onChange: r => onUpdate({
-      rating: r
-    }),
-    accent: theme.accent
-  }), /*#__PURE__*/React.createElement("textarea", {
-    value: entry.note,
-    onChange: e => onUpdate({
-      note: e.target.value
-    }),
-    placeholder: "Why does this land? What makes it work…",
-    rows: entry.note ? 2 : 1,
-    style: {
-      background: "rgba(0,0,0,0.25)",
-      border: `1px solid ${theme.panelBorder}`,
-      borderRadius: 8,
-      color: theme.ink,
-      fontFamily: theme.body,
-      fontSize: 13.5,
-      padding: "8px 10px",
-      resize: "vertical",
-      width: "100%",
-      boxSizing: "border-box",
-      lineHeight: 1.5
-    }
-  }), /*#__PURE__*/React.createElement(TagRow, {
-    tags: entry.tags || [],
-    theme: theme,
-    onAdd: t => onUpdate({
-      tags: [...(entry.tags || []), t]
-    }),
-    onRemove: t => onUpdate({
-      tags: (entry.tags || []).filter(x => x !== t)
-    })
-  }));
-}
-
-// ═══════════════════════════════════════════════════════════════
-// Stats dashboard
-// ═══════════════════════════════════════════════════════════════
-function Dashboard({
-  data,
-  theme
-}) {
-  const stats = useMemo(() => {
-    const all = [...data.characters, ...data.scenes];
-    const rated = all.filter(e => e.rating > 0);
-    const favs = all.filter(e => e.favorite);
-    const avg = rated.length ? rated.reduce((s, e) => s + e.rating, 0) / rated.length : 0;
-    const top = [...rated].sort((a, b) => b.rating - a.rating).slice(0, 3);
-    const tagCount = {};
-    all.forEach(e => (e.tags || []).forEach(t => tagCount[t] = (tagCount[t] || 0) + 1));
-    const topTags = Object.entries(tagCount).sort((a, b) => b[1] - a[1]).slice(0, 6);
-    const moods = data.moodsSelected || [];
-    return {
-      total: all.length,
-      rated: rated.length,
-      favs,
-      avg,
-      top,
-      topTags,
-      moods
-    };
-  }, [data]);
-  const Bar = ({
-    label,
-    val,
-    max,
-    color
-  }) => /*#__PURE__*/React.createElement("div", {
-    style: {
-      marginBottom: 8
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      justifyContent: "space-between",
-      fontFamily: theme.body,
-      fontSize: 12,
-      color: theme.sub,
-      marginBottom: 3
-    }
-  }, /*#__PURE__*/React.createElement("span", null, label), /*#__PURE__*/React.createElement("span", {
-    style: {
-      color: theme.ink
-    }
-  }, val)), /*#__PURE__*/React.createElement("div", {
-    style: {
-      height: 6,
-      background: "rgba(0,0,0,0.35)",
-      borderRadius: 4,
-      overflow: "hidden"
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      height: "100%",
-      width: `${max ? val / max * 100 : 0}%`,
-      background: color,
-      borderRadius: 4,
-      transition: "width .4s"
-    }
-  })));
-  return /*#__PURE__*/React.createElement("div", {
-    className: "fadein",
-    style: {
-      background: theme.panel,
-      border: `1px solid ${theme.panelBorder}`,
-      borderRadius: 14,
-      padding: 18,
-      marginBottom: 20
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      alignItems: "center",
-      gap: 8,
-      marginBottom: 16,
-      fontFamily: theme.display,
-      fontSize: 18,
-      color: theme.ink,
-      fontWeight: 600
-    }
-  }, /*#__PURE__*/React.createElement(BarChart3, {
-    size: 18,
-    color: theme.accent
-  }), " Your take, by the numbers"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "grid",
-      gridTemplateColumns: "repeat(3, 1fr)",
-      gap: 12,
-      marginBottom: 16
-    }
-  }, [{
-    n: stats.rated,
-    l: "rated"
-  }, {
-    n: stats.avg ? stats.avg.toFixed(1) : "—",
-    l: "avg stars"
-  }, {
-    n: stats.favs.length,
-    l: "favorites"
-  }].map((s, i) => /*#__PURE__*/React.createElement("div", {
-    key: i,
-    style: {
-      textAlign: "center",
-      background: "rgba(0,0,0,0.25)",
-      borderRadius: 10,
-      padding: "12px 6px"
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontFamily: theme.display,
-      fontSize: 26,
-      color: theme.accent,
-      fontWeight: 700
-    }
-  }, s.n), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontFamily: theme.body,
-      fontSize: 11,
-      color: theme.sub,
-      letterSpacing: 0.5
-    }
-  }, s.l)))), stats.top.length > 0 && /*#__PURE__*/React.createElement("div", {
-    style: {
-      marginBottom: 14
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontFamily: theme.body,
-      fontSize: 12,
-      letterSpacing: 1.5,
-      textTransform: "uppercase",
-      color: theme.accent2,
-      marginBottom: 8,
-      display: "flex",
-      alignItems: "center",
-      gap: 5
-    }
-  }, /*#__PURE__*/React.createElement(Award, {
-    size: 13
-  }), " Highest rated"), stats.top.map(e => /*#__PURE__*/React.createElement(Bar, {
-    key: e.id,
-    label: e.name,
-    val: e.rating,
-    max: 5,
-    color: theme.accent
-  }))), stats.topTags.length > 0 && /*#__PURE__*/React.createElement("div", {
-    style: {
-      marginBottom: stats.moods.length > 0 ? 14 : 0
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontFamily: theme.body,
-      fontSize: 12,
-      letterSpacing: 1.5,
-      textTransform: "uppercase",
-      color: theme.accent2,
-      marginBottom: 8
-    }
-  }, "Most-used tags"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      flexWrap: "wrap",
-      gap: 6
-    }
-  }, stats.topTags.map(([t, c]) => /*#__PURE__*/React.createElement("span", {
-    key: t,
-    style: {
-      background: "rgba(0,0,0,0.3)",
-      border: `1px solid ${theme.panelBorder}`,
-      color: theme.ink,
-      borderRadius: 20,
-      padding: "3px 11px",
-      fontFamily: theme.body,
-      fontSize: 12
-    }
-  }, t, " ", /*#__PURE__*/React.createElement("span", {
-    style: {
-      color: theme.sub
-    }
-  }, "×", c))))), stats.moods.length > 0 && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontFamily: theme.body,
-      fontSize: 12,
-      letterSpacing: 1.5,
-      textTransform: "uppercase",
-      color: theme.accent2,
-      marginBottom: 8
-    }
-  }, "Moods felt this watch"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      flexWrap: "wrap",
-      gap: 6
-    }
-  }, stats.moods.map(m => /*#__PURE__*/React.createElement("span", {
-    key: m,
-    style: {
-      background: theme.accent,
-      color: theme.bg,
-      borderRadius: 20,
-      padding: "3px 11px",
-      fontFamily: theme.body,
-      fontSize: 12,
-      fontWeight: 600
-    }
-  }, m)))));
-}
-
-// ═══════════════════════════════════════════════════════════════
-// Film detail view
-// ═══════════════════════════════════════════════════════════════
-function FilmView({
-  film,
-  uid,
-  onBack
-}) {
-  const {
-    theme
-  } = film;
-  const [data, setData] = useState(null);
-  const [activeCat, setActiveCat] = useState("characters");
-  const [adding, setAdding] = useState("");
-  const [query, setQuery] = useState("");
-  const [showStats, setShowStats] = useState(false);
-  const [favOnly, setFavOnly] = useState(false);
-  const [saving, setSaving] = useState(false);
-  useEffect(() => {
-    loadFilm(uid, film).then(setData);
-  }, [film.id, uid]);
-  const persist = useCallback(next => {
-    setData(next);
-    setSaving(true);
-    saveFilm(uid, film.id, next).finally(() => setSaving(false));
-  }, [film.id, uid]);
-  if (!data) return /*#__PURE__*/React.createElement("div", {
-    style: {
-      minHeight: "100vh",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      background: theme.bg,
-      color: theme.sub,
-      fontFamily: theme.body,
-      gap: 10
-    }
-  }, /*#__PURE__*/React.createElement(Loader, {
-    size: 18,
-    color: theme.accent,
-    style: {
-      animation: "spin .9s linear infinite"
-    }
-  }), " Loading…");
-  const isMoods = activeCat === "moods";
-  const list = isMoods ? [] : data[activeCat] || [];
-  const catMeta = CATEGORIES.find(c => c.key === activeCat);
-
-  // ── Mood pill model ──
-  const moodCustom = data.moodsCustom || [];
-  const moodSelected = data.moodsSelected || [];
-  const moodPills = [...SHARED_MOODS, ...moodCustom.filter(m => !SHARED_MOODS.includes(m))];
-  const toggleMood = m => {
-    const next = moodSelected.includes(m) ? moodSelected.filter(x => x !== m) : [...moodSelected, m];
-    persist({
-      ...data,
-      moodsSelected: next
-    });
-  };
-  const addMood = () => {
-    const m = adding.trim();
-    if (!m) return;
-    const exists = moodPills.some(p => p.toLowerCase() === m.toLowerCase());
-    const nextCustom = exists ? moodCustom : [...moodCustom, m];
-    const nextSel = moodSelected.includes(m) ? moodSelected : [...moodSelected, m];
-    persist({
-      ...data,
-      moodsCustom: nextCustom,
-      moodsSelected: nextSel
-    });
-    setAdding("");
-  };
-  const clearMoods = () => persist({
-    ...data,
-    moodsSelected: []
+function renderEntries(id, cat){
+  const d=filmData[id]; const meta=CATEGORIES.find(c=>c.key===cat);
+  let list=(d[cat]||[]).slice();
+  const rated=list.filter(e=>e.rating>0);
+  const avg=rated.length?(rated.reduce((s,e)=>s+e.rating,0)/rated.length).toFixed(1):"—";
+  let shown=list.filter(e=>{
+    if(favOnly && !e.favorite) return false;
+    if(!query.trim()) return true;
+    const q=query.toLowerCase();
+    return e.name.toLowerCase().includes(q)||(e.note||"").toLowerCase().includes(q)||(e.tags||[]).some(t=>t.toLowerCase().includes(q));
   });
-  const filtered = list.filter(e => {
-    if (favOnly && !e.favorite) return false;
-    if (!query.trim()) return true;
-    const q = query.toLowerCase();
-    return e.name.toLowerCase().includes(q) || (e.note || "").toLowerCase().includes(q) || (e.tags || []).some(t => t.toLowerCase().includes(q));
-  });
-  const addEntry = () => {
-    const name = adding.trim();
-    if (!name) return;
-    persist({
-      ...data,
-      [activeCat]: [{
-        id: `n-${Date.now()}`,
-        name,
-        rating: 0,
-        note: "",
-        favorite: false,
-        tags: []
-      }, ...list]
-    });
-    setAdding("");
-  };
-  const update = (id, patch) => persist({
-    ...data,
-    [activeCat]: list.map(e => e.id === id ? {
-      ...e,
-      ...patch
-    } : e)
-  });
-  const remove = id => persist({
-    ...data,
-    [activeCat]: list.filter(e => e.id !== id)
-  });
-  const rated = list.filter(e => e.rating > 0);
-  const avg = rated.length ? (rated.reduce((s, e) => s + e.rating, 0) / rated.length).toFixed(1) : "—";
-  return /*#__PURE__*/React.createElement("div", {
-    style: {
-      minHeight: "100vh",
-      background: theme.bg,
-      backgroundImage: theme.texture,
-      color: theme.ink
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      maxWidth: 660,
-      margin: "0 auto",
-      padding: "20px 18px 60px"
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "space-between",
-      marginBottom: 20
-    }
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: onBack,
-    style: {
-      display: "inline-flex",
-      alignItems: "center",
-      gap: 6,
-      background: "none",
-      border: `1px solid ${theme.panelBorder}`,
-      color: theme.sub,
-      borderRadius: 8,
-      padding: "6px 12px",
-      cursor: "pointer",
-      fontFamily: theme.body,
-      fontSize: 13
-    }
-  }, /*#__PURE__*/React.createElement(ChevronLeft, {
-    size: 15
-  }), " All films"), /*#__PURE__*/React.createElement("span", {
-    style: {
-      display: "inline-flex",
-      alignItems: "center",
-      gap: 6,
-      fontFamily: theme.body,
-      fontSize: 12,
-      color: theme.sub,
-      opacity: saving ? 1 : 0.5,
-      transition: "opacity .2s"
-    }
-  }, /*#__PURE__*/React.createElement(Cloud, {
-    size: 14,
-    color: saving ? theme.accent : theme.sub
-  }), " ", saving ? "Saving…" : "Saved")), /*#__PURE__*/React.createElement("div", {
-    style: {
-      marginBottom: 4,
-      fontFamily: theme.body,
-      fontSize: 12,
-      letterSpacing: 3,
-      textTransform: "uppercase",
-      color: theme.accent2
-    }
-  }, film.year), /*#__PURE__*/React.createElement("h1", {
-    style: {
-      fontFamily: theme.display,
-      fontSize: 46,
-      margin: "0 0 6px",
-      fontWeight: 700,
-      textTransform: film.upper ? "uppercase" : "none",
-      letterSpacing: film.upper ? 1 : 0,
-      color: theme.ink,
-      textShadow: theme.glow,
-      lineHeight: 1
-    }
-  }, film.title), /*#__PURE__*/React.createElement("p", {
-    style: {
-      fontFamily: theme.display,
-      fontStyle: "italic",
-      color: theme.sub,
-      margin: "0 0 14px",
-      fontSize: 17
-    }
-  }, film.tagline), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      flexWrap: "wrap",
-      gap: 6,
-      marginBottom: 14
-    }
-  }, film.genres.map(g => /*#__PURE__*/React.createElement("span", {
-    key: g,
-    style: {
-      background: "rgba(0,0,0,0.3)",
-      border: `1px solid ${theme.panelBorder}`,
-      color: theme.accent2,
-      borderRadius: 20,
-      padding: "3px 12px",
-      fontFamily: theme.body,
-      fontSize: 12,
-      letterSpacing: 0.3
-    }
-  }, g))), /*#__PURE__*/React.createElement("p", {
-    style: {
-      fontFamily: theme.body,
-      fontSize: 14,
-      lineHeight: 1.6,
-      color: theme.ink,
-      opacity: 0.9,
-      margin: "0 0 18px",
-      background: "rgba(0,0,0,0.2)",
-      borderLeft: `3px solid ${theme.accent}`,
-      borderRadius: "0 8px 8px 0",
-      padding: "12px 14px"
-    }
-  }, film.synopsis), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      alignItems: "center",
-      gap: 12,
-      marginBottom: 18,
-      background: theme.panel,
-      border: `1px solid ${theme.panelBorder}`,
-      borderRadius: 12,
-      padding: "12px 16px"
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontFamily: theme.body,
-      fontSize: 13,
-      color: theme.sub
-    }
-  }, "Overall film"), /*#__PURE__*/React.createElement(Stars, {
-    value: data.filmRating || 0,
-    onChange: r => persist({
-      ...data,
-      filmRating: r === data.filmRating ? 0 : r
-    }),
-    accent: theme.accent,
-    size: 22
-  })), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setShowStats(s => !s),
-    style: {
-      display: "inline-flex",
-      alignItems: "center",
-      gap: 6,
-      background: showStats ? theme.accent : theme.panel,
-      border: `1px solid ${showStats ? theme.accent : theme.panelBorder}`,
-      color: showStats ? theme.bg : theme.ink,
-      borderRadius: 10,
-      padding: "8px 14px",
-      cursor: "pointer",
-      fontFamily: theme.body,
-      fontSize: 13,
-      fontWeight: 600,
-      marginBottom: 18
-    }
-  }, /*#__PURE__*/React.createElement(BarChart3, {
-    size: 15
-  }), " ", showStats ? "Hide" : "Show", " stats dashboard"), showStats && /*#__PURE__*/React.createElement(Dashboard, {
-    data: data,
-    theme: theme
-  }), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      gap: 8,
-      marginBottom: 16
-    }
-  }, CATEGORIES.map(c => {
-    const Icon = c.icon;
-    const on = activeCat === c.key;
-    const count = c.key === "moods" ? (data.moodsSelected || []).length : (data[c.key] || []).length;
-    return /*#__PURE__*/React.createElement("button", {
-      key: c.key,
-      onClick: () => {
-        setActiveCat(c.key);
-        setQuery("");
-        setFavOnly(false);
-      },
-      style: {
-        flex: 1,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        gap: 5,
-        background: on ? theme.accent : theme.panel,
-        border: `1px solid ${on ? theme.accent : theme.panelBorder}`,
-        color: on ? theme.bg : theme.ink,
-        borderRadius: 10,
-        padding: "12px 6px",
-        cursor: "pointer",
-        fontFamily: theme.body,
-        fontSize: 12.5,
-        fontWeight: 600,
-        transition: "all .15s",
-        boxShadow: on ? theme.glow : "none"
-      }
-    }, /*#__PURE__*/React.createElement(Icon, {
-      size: 18
-    }), " ", c.label, /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: 11,
-        opacity: 0.7
-      }
-    }, count));
-  })), isMoods ? /*#__PURE__*/React.createElement("div", {
-    className: "fadein"
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontFamily: theme.body,
-      fontSize: 13,
-      color: theme.sub,
-      margin: "2px 2px 14px",
-      lineHeight: 1.5
-    }
-  }, "Tap what you feel as you watch. ", moodSelected.length > 0 ? /*#__PURE__*/React.createElement("span", {
-    style: {
-      color: theme.ink
-    }
-  }, moodSelected.length, " selected") : "Nothing selected yet."), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      flexWrap: "wrap",
-      gap: 8,
-      marginBottom: 18
-    }
-  }, moodPills.map(m => {
-    const on = moodSelected.includes(m);
-    const custom = moodCustom.includes(m) && !SHARED_MOODS.includes(m);
-    return /*#__PURE__*/React.createElement("button", {
-      key: m,
-      onClick: () => toggleMood(m),
-      style: {
-        background: on ? theme.accent : theme.panel,
-        border: `1px solid ${on ? theme.accent : custom ? theme.accent2 : theme.panelBorder}`,
-        color: on ? theme.bg : theme.ink,
-        borderRadius: 22,
-        padding: "8px 16px",
-        cursor: "pointer",
-        fontFamily: theme.body,
-        fontSize: 14,
-        fontWeight: on ? 700 : 500,
-        letterSpacing: 0.2,
-        boxShadow: on ? theme.glow : "none",
-        transition: "all .13s",
-        transform: on ? "translateY(-1px)" : "none"
-      }
-    }, m);
-  })), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      gap: 8,
-      marginBottom: 14
-    }
-  }, /*#__PURE__*/React.createElement("input", {
-    value: adding,
-    onChange: e => setAdding(e.target.value),
-    onKeyDown: e => e.key === "Enter" && addMood(),
-    placeholder: "Add your own mood…",
-    style: {
-      flex: 1,
-      background: theme.panel,
-      border: `1px solid ${theme.panelBorder}`,
-      borderRadius: 10,
-      color: theme.ink,
-      fontFamily: theme.body,
-      fontSize: 14,
-      padding: "11px 14px"
-    }
-  }), /*#__PURE__*/React.createElement("button", {
-    onClick: addMood,
-    style: {
-      display: "inline-flex",
-      alignItems: "center",
-      gap: 5,
-      background: theme.accent,
-      border: "none",
-      color: theme.bg,
-      borderRadius: 10,
-      padding: "0 16px",
-      cursor: "pointer",
-      fontFamily: theme.body,
-      fontSize: 14,
-      fontWeight: 700
-    }
-  }, /*#__PURE__*/React.createElement(Plus, {
-    size: 16
-  }), " Add")), moodSelected.length > 0 && /*#__PURE__*/React.createElement("button", {
-    onClick: clearMoods,
-    style: {
-      display: "inline-flex",
-      alignItems: "center",
-      gap: 6,
-      background: "none",
-      border: `1px solid ${theme.panelBorder}`,
-      color: theme.sub,
-      borderRadius: 10,
-      padding: "8px 14px",
-      cursor: "pointer",
-      fontFamily: theme.body,
-      fontSize: 13
-    }
-  }, /*#__PURE__*/React.createElement(X, {
-    size: 14
-  }), " Clear all selected")) : /*#__PURE__*/React.createElement("div", {
-    className: "fadein"
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      gap: 8,
-      marginBottom: 14
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      flex: 1,
-      position: "relative"
-    }
-  }, /*#__PURE__*/React.createElement(Search, {
-    size: 15,
-    color: theme.sub,
-    style: {
-      position: "absolute",
-      left: 12,
-      top: "50%",
-      transform: "translateY(-50%)"
-    }
-  }), /*#__PURE__*/React.createElement("input", {
-    value: query,
-    onChange: e => setQuery(e.target.value),
-    placeholder: `Search ${catMeta.label.toLowerCase()}…`,
-    style: {
-      width: "100%",
-      boxSizing: "border-box",
-      background: theme.panel,
-      border: `1px solid ${theme.panelBorder}`,
-      borderRadius: 10,
-      color: theme.ink,
-      fontFamily: theme.body,
-      fontSize: 13.5,
-      padding: "10px 12px 10px 34px"
-    }
-  })), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setFavOnly(f => !f),
-    "aria-label": "Favorites only",
-    style: {
-      display: "inline-flex",
-      alignItems: "center",
-      gap: 5,
-      background: favOnly ? theme.accent : theme.panel,
-      border: `1px solid ${favOnly ? theme.accent : theme.panelBorder}`,
-      color: favOnly ? theme.bg : theme.sub,
-      borderRadius: 10,
-      padding: "0 14px",
-      cursor: "pointer",
-      fontFamily: theme.body,
-      fontSize: 13,
-      fontWeight: 600
-    }
-  }, /*#__PURE__*/React.createElement(Heart, {
-    size: 15,
-    fill: favOnly ? theme.bg : "none",
-    color: favOnly ? theme.bg : "currentColor"
-  }), " Faves")), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      gap: 8,
-      marginBottom: 8
-    }
-  }, /*#__PURE__*/React.createElement("input", {
-    value: adding,
-    onChange: e => setAdding(e.target.value),
-    onKeyDown: e => e.key === "Enter" && addEntry(),
-    placeholder: catMeta.prompt,
-    style: {
-      flex: 1,
-      background: theme.panel,
-      border: `1px solid ${theme.panelBorder}`,
-      borderRadius: 10,
-      color: theme.ink,
-      fontFamily: theme.body,
-      fontSize: 14,
-      padding: "11px 14px"
-    }
-  }), /*#__PURE__*/React.createElement("button", {
-    onClick: addEntry,
-    style: {
-      display: "inline-flex",
-      alignItems: "center",
-      gap: 5,
-      background: theme.accent,
-      border: "none",
-      color: theme.bg,
-      borderRadius: 10,
-      padding: "0 16px",
-      cursor: "pointer",
-      fontFamily: theme.body,
-      fontSize: 14,
-      fontWeight: 700
-    }
-  }, /*#__PURE__*/React.createElement(Plus, {
-    size: 16
-  }), " Add")), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontFamily: theme.body,
-      fontSize: 12.5,
-      color: theme.sub,
-      margin: "6px 2px 16px",
-      display: "flex",
-      alignItems: "center",
-      gap: 6
-    }
-  }, /*#__PURE__*/React.createElement(Star, {
-    size: 13,
-    fill: theme.accent,
-    strokeWidth: 0,
-    color: theme.accent
-  }), "Avg ", catMeta.label.toLowerCase(), " rating ", /*#__PURE__*/React.createElement("b", {
-    style: {
-      color: theme.ink
-    }
-  }, avg), /*#__PURE__*/React.createElement("span", {
-    style: {
-      opacity: 0.6
-    }
-  }, "· ", filtered.length, " shown")), filtered.length === 0 ? /*#__PURE__*/React.createElement("div", {
-    style: {
-      textAlign: "center",
-      padding: "40px 20px",
-      color: theme.sub,
-      fontFamily: theme.body,
-      fontSize: 14,
-      border: `1px dashed ${theme.panelBorder}`,
-      borderRadius: 12
-    }
-  }, query || favOnly ? "Nothing matches that filter." : `No ${catMeta.label.toLowerCase()} yet — add the first above.`) : filtered.map(e => /*#__PURE__*/React.createElement(EntryCard, {
-    key: e.id,
-    entry: e,
-    theme: theme,
-    onUpdate: patch => update(e.id, patch),
-    onDelete: () => remove(e.id)
-  })))));
+  const rows=shown.map(e=>{
+    const stars=[1,2,3,4,5].map(n=>`<button class="star ${e.rating>=n?'on':''}" data-star="${n}" data-eid="${e.id}">★</button>`).join("");
+    const tags=(e.tags||[]).map(t=>`<span class="tchip">${escapeHtml(t)}</span>`).join("");
+    const notePrev=e.note?`<div class="entry-note-preview">${escapeHtml(e.note)}</div>`:'';
+    return `<div class="entry ${e.favorite?'fav':''}" data-eid="${e.id}">
+      <div class="entry-top">
+        <div class="entry-name" data-open="${e.id}">${escapeHtml(e.name)}</div>
+        <div class="entry-actions">
+          <button class="iconbtn fav ${e.favorite?'on':''}" data-fav="${e.id}" title="Favorite">${e.favorite?'♥':'♡'}</button>
+          <button class="iconbtn del" data-del="${e.id}" title="Delete">🗑</button>
+        </div>
+      </div>
+      <div class="stars">${stars}</div>
+      ${notePrev}
+      ${tags?`<div class="tagchips">${tags}</div>`:''}
+    </div>`;
+  }).join("");
+  return `
+    <div class="search">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--mute)"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+      <input id="entrySearch" placeholder="Search ${meta.label.toLowerCase()}…" value="${query.replace(/"/g,'&quot;')}">
+    </div>
+    <div class="addrow">
+      <input id="entryAdd" placeholder="${meta.prompt}" autocomplete="off">
+      <button class="btn-add" id="entryAddBtn">+ Add</button>
+    </div>
+    <div class="sub" style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+      <span style="color:var(--accent)">★</span> Avg ${meta.label.toLowerCase()} rating <b style="color:var(--cream)">${avg}</b>
+      <button class="pill ${favOnly?'on':''}" id="favToggle" style="padding:4px 12px;font-size:12px">♥ Faves</button>
+      <span style="opacity:.6">· ${shown.length} shown</span>
+    </div>
+    ${shown.length?`<div class="entrylist">${rows}</div>`:`<div class="empty">${query||favOnly?'Nothing matches that filter.':`No ${meta.label.toLowerCase()} yet — add the first above.`}</div>`}`;
 }
 
-// ═══════════════════════════════════════════════════════════════
-// Home tile
-// ═══════════════════════════════════════════════════════════════
-function FilmTile({
-  film,
-  uid,
-  onOpen
-}) {
-  const {
-    theme
-  } = film;
-  const [meta, setMeta] = useState(null);
-  useEffect(() => {
-    loadFilm(uid, film).then(d => {
-      const all = [...d.characters, ...d.scenes];
-      setMeta({
-        count: all.length,
-        filmRating: d.filmRating || 0,
-        moods: (d.moodsSelected || []).length
-      });
-    });
-  }, [film.id, uid]);
-  return /*#__PURE__*/React.createElement("button", {
-    onClick: onOpen,
-    style: {
-      position: "relative",
-      textAlign: "left",
-      cursor: "pointer",
-      background: theme.panel,
-      backgroundImage: theme.texture,
-      border: `1px solid ${theme.panelBorder}`,
-      borderRadius: 16,
-      padding: 22,
-      overflow: "hidden",
-      transition: "transform .18s, box-shadow .18s",
-      minHeight: 190
-    },
-    onMouseEnter: e => {
-      e.currentTarget.style.transform = "translateY(-3px)";
-      e.currentTarget.style.boxShadow = theme.glow;
-    },
-    onMouseLeave: e => {
-      e.currentTarget.style.transform = "none";
-      e.currentTarget.style.boxShadow = "none";
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontFamily: theme.body,
-      fontSize: 11,
-      letterSpacing: 3,
-      textTransform: "uppercase",
-      color: theme.accent2,
-      marginBottom: 8
-    }
-  }, film.year), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontFamily: theme.display,
-      fontSize: 29,
-      fontWeight: 700,
-      color: theme.ink,
-      lineHeight: 1.02,
-      textShadow: theme.glow,
-      textTransform: film.upper ? "uppercase" : "none"
-    }
-  }, film.title), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontFamily: theme.display,
-      fontStyle: "italic",
-      color: theme.sub,
-      margin: "8px 0 10px",
-      fontSize: 14
-    }
-  }, film.tagline), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      flexWrap: "wrap",
-      gap: 5
-    }
-  }, film.genres.slice(0, 3).map(g => /*#__PURE__*/React.createElement("span", {
-    key: g,
-    style: {
-      background: "rgba(0,0,0,0.28)",
-      color: theme.sub,
-      borderRadius: 20,
-      padding: "2px 9px",
-      fontFamily: theme.body,
-      fontSize: 11
-    }
-  }, g))), /*#__PURE__*/React.createElement("div", {
-    style: {
-      position: "absolute",
-      bottom: 16,
-      right: 18,
-      fontFamily: theme.body,
-      fontSize: 12,
-      color: theme.sub,
-      display: "flex",
-      alignItems: "center",
-      gap: 10
-    }
-  }, meta && meta.filmRating > 0 && /*#__PURE__*/React.createElement("span", {
-    style: {
-      display: "flex",
-      alignItems: "center",
-      gap: 3,
-      color: theme.accent
-    }
-  }, /*#__PURE__*/React.createElement(Star, {
-    size: 12,
-    fill: theme.accent,
-    strokeWidth: 0,
-    color: theme.accent
-  }), " ", meta.filmRating), /*#__PURE__*/React.createElement("span", {
-    style: {
-      display: "flex",
-      alignItems: "center",
-      gap: 5
-    }
-  }, /*#__PURE__*/React.createElement(Film, {
-    size: 13,
-    color: theme.accent
-  }), " ", meta === null ? "…" : `${meta.count} items`)));
+function renderMoods(id){
+  const d=filmData[id];
+  const custom=d.moodsCustom||[]; const selected=d.moodsSelected||[];
+  const pills=[...SHARED_MOODS, ...custom.filter(m=>!SHARED_MOODS.includes(m))];
+  const grid=pills.map(m=>{
+    const on=selected.includes(m); const isC=custom.includes(m)&&!SHARED_MOODS.includes(m);
+    return `<button class="mood ${on?'on':''} ${isC?'custom':''}" data-mood="${escapeHtml(m)}">${escapeHtml(m)}</button>`;
+  }).join("");
+  return `
+    <div class="sub" style="margin-bottom:14px">Tap what you feel as you watch. ${selected.length>0?`<b style="color:var(--cream)">${selected.length} selected</b>`:'Nothing selected yet.'}</div>
+    <div class="moodgrid">${grid}</div>
+    <div class="addrow">
+      <input id="moodAdd" placeholder="Add your own mood…" autocomplete="off">
+      <button class="btn-add" id="moodAddBtn">+ Add</button>
+    </div>
+    ${selected.length>0?`<button class="btn ghost" id="moodClear" style="margin-top:4px">✕ Clear all selected</button>`:''}`;
 }
 
-// ═══════════════════════════════════════════════════════════════
-// Sign-in screen
-// ═══════════════════════════════════════════════════════════════
-function SignIn({
-  onSignIn,
-  error
-}) {
-  return /*#__PURE__*/React.createElement("div", {
-    style: {
-      minHeight: "100vh",
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center",
-      background: "#060608",
-      color: "#f0eef2",
-      padding: 24,
-      backgroundImage: "radial-gradient(circle at 15% 0%, rgba(255,45,85,0.06), transparent 40%), radial-gradient(circle at 85% 100%, rgba(46,166,255,0.06), transparent 40%)"
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontFamily: "'Inter', sans-serif",
-      fontSize: 12,
-      letterSpacing: 4,
-      textTransform: "uppercase",
-      color: "#6a6a78",
-      marginBottom: 10
-    }
-  }, "Personal Cinema Ledger"), /*#__PURE__*/React.createElement("h1", {
-    style: {
-      fontFamily: "'Oswald', sans-serif",
-      fontSize: 60,
-      fontWeight: 700,
-      margin: "0 0 14px",
-      letterSpacing: 0.5,
-      lineHeight: 1,
-      textAlign: "center"
-    }
-  }, "THE VAULT"), /*#__PURE__*/React.createElement("p", {
-    style: {
-      fontFamily: "'Inter', sans-serif",
-      color: "#8a8a98",
-      fontSize: 15,
-      margin: "0 0 30px",
-      maxWidth: 420,
-      textAlign: "center",
-      lineHeight: 1.5
-    }
-  }, "Quantify what you love and why — rate every character, scene, and mood across your favorite films. Sign in to sync your ratings across all your devices."), /*#__PURE__*/React.createElement("button", {
-    onClick: onSignIn,
-    style: {
-      display: "inline-flex",
-      alignItems: "center",
-      gap: 10,
-      background: "#f0eef2",
-      border: "none",
-      color: "#060608",
-      borderRadius: 12,
-      padding: "13px 24px",
-      cursor: "pointer",
-      fontFamily: "'Inter', sans-serif",
-      fontSize: 15,
-      fontWeight: 700
-    }
-  }, /*#__PURE__*/React.createElement("svg", {
-    width: "18",
-    height: "18",
-    viewBox: "0 0 48 48"
-  }, /*#__PURE__*/React.createElement("path", {
-    fill: "#EA4335",
-    d: "M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
-  }), /*#__PURE__*/React.createElement("path", {
-    fill: "#4285F4",
-    d: "M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
-  }), /*#__PURE__*/React.createElement("path", {
-    fill: "#FBBC05",
-    d: "M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
-  }), /*#__PURE__*/React.createElement("path", {
-    fill: "#34A853",
-    d: "M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
-  })), "Sign in with Google"), error && /*#__PURE__*/React.createElement("p", {
-    style: {
-      color: "#ff6b6b",
-      fontFamily: "'Inter', sans-serif",
-      fontSize: 13,
-      marginTop: 18
-    }
-  }, error));
+function renderDash(id){
+  const d=filmData[id];
+  const all=[...d.characters,...d.scenes];
+  const rated=all.filter(e=>e.rating>0);
+  const favs=all.filter(e=>e.favorite);
+  const avg=rated.length?(rated.reduce((s,e)=>s+e.rating,0)/rated.length):0;
+  const top=[...rated].sort((a,b)=>b.rating-a.rating).slice(0,3);
+  const tagCount={}; all.forEach(e=>(e.tags||[]).forEach(t=>tagCount[t]=(tagCount[t]||0)+1));
+  const topTags=Object.entries(tagCount).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const moods=d.moodsSelected||[];
+  return `<div class="dash">
+    <h3>▤ Your take, by the numbers</h3>
+    <div class="dash-nums">
+      <div class="dash-num"><b>${rated.length}</b><span>rated</span></div>
+      <div class="dash-num"><b>${avg?avg.toFixed(1):'—'}</b><span>avg stars</span></div>
+      <div class="dash-num"><b>${favs.length}</b><span>favorites</span></div>
+    </div>
+    ${top.length?`<div class="dash-lbl">Highest rated</div>${top.map(e=>`<div class="dbar"><div class="dbar-top"><span>${escapeHtml(e.name)}</span><span style="color:var(--cream)">${e.rating}</span></div><div class="dbar-track"><i style="width:${e.rating/5*100}%"></i></div></div>`).join("")}`:''}
+    ${topTags.length?`<div class="dash-lbl" style="margin-top:14px">Most-used tags</div><div class="dash-chips">${topTags.map(([t,c])=>`<span class="dash-chip">${escapeHtml(t)} <span style="color:var(--mute)">×${c}</span></span>`).join("")}</div>`:''}
+    ${moods.length?`<div class="dash-lbl" style="margin-top:14px">Moods felt this watch</div><div class="dash-chips">${moods.map(m=>`<span class="dash-mood">${escapeHtml(m)}</span>`).join("")}</div>`:''}
+  </div>`;
 }
 
-// ═══════════════════════════════════════════════════════════════
-// Main app
-// ═══════════════════════════════════════════════════════════════
-function App() {
-  const [user, setUser] = useState(null);
-  const [authChecked, setAuthChecked] = useState(false);
-  const [authError, setAuthError] = useState("");
-  const [open, setOpen] = useState(null);
-  const [genreFilter, setGenreFilter] = useState(null);
-  const cloudAvailable = hasCloud();
-
-  // Watch auth state. Once Firebase reports in (signed in or not), mark checked.
-  useEffect(() => {
-    if (!cloudAvailable) { setAuthChecked(true); return; }
-    const unsub = window.VaultFirebase.onAuth(u => { setUser(u || null); setAuthChecked(true); });
-    return () => unsub && unsub();
-  }, [cloudAvailable]);
-
-  const doSignIn = () => {
-    setAuthError("");
-    if (!cloudAvailable) return;
-    window.VaultFirebase.signIn().catch(e => setAuthError(e.message || "Sign-in failed."));
-  };
-
-  // If Firebase never loaded, we can't gate on sign-in — show a clear message.
-  if (!cloudAvailable) {
-    return /*#__PURE__*/React.createElement("div", {
-      style: { minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
-        background: "#060608", color: "#8a8a98", fontFamily: "'Inter', sans-serif", padding: 30, textAlign: "center", lineHeight: 1.6 }
-    }, "Couldn't reach the sign-in service. Check your connection and reload.");
-  }
-
-  // Still determining whether someone is signed in — brief loading state.
-  if (!authChecked) {
-    return /*#__PURE__*/React.createElement("div", {
-      style: { minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
-        background: "#060608", color: "#6a6a78", fontFamily: "'Inter', sans-serif", gap: 10 }
-    }, /*#__PURE__*/React.createElement(Loader, { size: 18, color: "#8a8a98", style: { animation: "spin .9s linear infinite" } }), " Loading…");
-  }
-
-  // Not signed in → gate the whole app behind the sign-in screen.
-  if (!user) {
-    return /*#__PURE__*/React.createElement(SignIn, { onSignIn: doSignIn, error: authError });
-  }
-
-  // Signed in — everything below uses the real uid.
-  const uid = user.uid;
-  if (open) return /*#__PURE__*/React.createElement(FilmView, {
-    key: uid,
-    film: FILMS[open],
-    uid: uid,
-    onBack: () => setOpen(null)
-  });
-  const films = Object.values(FILMS).filter(f => !genreFilter || f.genres.includes(genreFilter));
-  return /*#__PURE__*/React.createElement("div", {
-    style: {
-      minHeight: "100vh",
-      background: "#060608",
-      backgroundImage: "radial-gradient(circle at 15% 0%, rgba(255,45,85,0.06), transparent 40%), radial-gradient(circle at 85% 100%, rgba(46,166,255,0.06), transparent 40%)",
-      color: "#f0eef2"
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      maxWidth: 740,
-      margin: "0 auto",
-      padding: "40px 18px 60px"
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      alignItems: "flex-start",
-      justifyContent: "space-between",
-      gap: 12,
-      marginBottom: 10
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontFamily: "'Inter', sans-serif",
-      fontSize: 12,
-      letterSpacing: 4,
-      textTransform: "uppercase",
-      color: "#6a6a78"
-    }
-  }, "Personal Cinema Ledger"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      alignItems: "center",
-      gap: 10,
-      flexShrink: 0
-    }
-  }, user ? /*#__PURE__*/React.createElement(React.Fragment, null, user.photoURL && /*#__PURE__*/React.createElement("img", {
-    src: user.photoURL,
-    alt: "",
-    style: {
-      width: 26,
-      height: 26,
-      borderRadius: "50%"
-    },
-    referrerPolicy: "no-referrer"
-  }), /*#__PURE__*/React.createElement("button", {
-    onClick: () => window.VaultFirebase.signOut(),
-    style: {
-      display: "inline-flex",
-      alignItems: "center",
-      gap: 5,
-      background: "none",
-      border: "1px solid #2a2a32",
-      color: "#8a8a98",
-      borderRadius: 8,
-      padding: "5px 11px",
-      cursor: "pointer",
-      fontFamily: "'Inter', sans-serif",
-      fontSize: 12.5
-    }
-  }, /*#__PURE__*/React.createElement(LogOut, {
-    size: 13
-  }), " Sign out")) : cloudAvailable ? /*#__PURE__*/React.createElement("button", {
-    onClick: doSignIn,
-    style: {
-      display: "inline-flex",
-      alignItems: "center",
-      gap: 6,
-      background: "none",
-      border: "1px solid #2a2a32",
-      color: "#8a8a98",
-      borderRadius: 8,
-      padding: "5px 12px",
-      cursor: "pointer",
-      fontFamily: "'Inter', sans-serif",
-      fontSize: 12.5
-    }
-  }, /*#__PURE__*/React.createElement(LogIn, {
-    size: 13
-  }), " Sign in to sync") : null)), /*#__PURE__*/React.createElement("h1", {
-    style: {
-      fontFamily: "'Oswald', sans-serif",
-      fontSize: 52,
-      fontWeight: 700,
-      margin: "0 0 8px",
-      letterSpacing: 0.5,
-      lineHeight: 1
-    }
-  }, "THE VAULT"), /*#__PURE__*/React.createElement("p", {
-    style: {
-      fontFamily: "'Inter', sans-serif",
-      color: "#8a8a98",
-      fontSize: 15,
-      margin: "0 0 26px",
-      maxWidth: 480,
-      lineHeight: 1.5
-    }
-  }, "Rate every character, scene, and mood, tag the patterns, and watch your taste take shape. Each film comes pre-loaded with its real cast and key moments.", cloudAvailable ? " Sign in to sync across devices." : ""), authError && /*#__PURE__*/React.createElement("p", {
-    style: {
-      color: "#ff6b6b",
-      fontFamily: "'Inter', sans-serif",
-      fontSize: 13,
-      margin: "-14px 0 20px"
-    }
-  }, authError), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      flexWrap: "wrap",
-      gap: 7,
-      marginBottom: 28
-    }
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => setGenreFilter(null),
-    style: {
-      background: genreFilter === null ? "#f0eef2" : "transparent",
-      color: genreFilter === null ? "#060608" : "#8a8a98",
-      border: "1px solid #2a2a32",
-      borderRadius: 20,
-      padding: "5px 14px",
-      cursor: "pointer",
-      fontFamily: "'Inter', sans-serif",
-      fontSize: 12.5,
-      fontWeight: 600
-    }
-  }, "All"), ALL_GENRES.map(g => /*#__PURE__*/React.createElement("button", {
-    key: g,
-    onClick: () => setGenreFilter(g === genreFilter ? null : g),
-    style: {
-      background: genreFilter === g ? "#f0eef2" : "transparent",
-      color: genreFilter === g ? "#060608" : "#8a8a98",
-      border: "1px solid #2a2a32",
-      borderRadius: 20,
-      padding: "5px 14px",
-      cursor: "pointer",
-      fontFamily: "'Inter', sans-serif",
-      fontSize: 12.5,
-      fontWeight: 600
-    }
-  }, g))), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "grid",
-      gridTemplateColumns: "repeat(auto-fit, minmax(290px, 1fr))",
-      gap: 16
-    }
-  }, films.map(f => /*#__PURE__*/React.createElement(FilmTile, {
-    key: f.id,
-    film: f,
-    uid: uid,
-    onOpen: () => setOpen(f.id)
-  }))), films.length === 0 && /*#__PURE__*/React.createElement("div", {
-    style: {
-      textAlign: "center",
-      padding: 40,
-      color: "#6a6a78",
-      fontFamily: "'Inter', sans-serif"
-    }
-  }, "No films in that genre yet.")));
+/* ===========================================================================
+   ENTRY DRAWER
+   =========================================================================== */
+function openEntry(filmId, cat, eid){
+  const d=filmData[filmId]; const e=(d[cat]||[]).find(x=>x.id===eid); if(!e) return;
+  editing={filmId,cat,id:eid};
+  draft=JSON.parse(JSON.stringify(e));
+  if(!draft.tags) draft.tags=[];
+  const f=FILMS[filmId];
+  document.getElementById("d-eyebrow").textContent=`${f.title} · ${CATEGORIES.find(c=>c.key===cat).label}`;
+  document.getElementById("d-title").textContent=e.name;
+  // stars
+  const sc=document.getElementById("d-stars");
+  sc.innerHTML=[1,2,3,4,5].map(n=>`<button class="bigstar ${draft.rating>=n?'on':''}" data-dstar="${n}">★</button>`).join("");
+  sc.querySelectorAll(".bigstar").forEach(b=>b.onclick=()=>{ const n=parseInt(b.dataset.dstar); draft.rating=draft.rating===n?0:n; sc.querySelectorAll(".bigstar").forEach((x,i)=>x.classList.toggle("on",draft.rating>=i+1)); });
+  // note
+  const ta=document.getElementById("d-note"); ta.value=draft.note||""; ta.oninput=(ev)=>draft.note=ev.target.value;
+  // tags
+  renderDraftTags();
+  const kin=document.getElementById("d-kwinput"); kin.value="";
+  kin.onkeydown=(ev)=>{ if(ev.key==="Enter"||ev.key===","){ ev.preventDefault(); const v=kin.value.trim().replace(/,$/,""); if(v&&!draft.tags.includes(v)){draft.tags.push(v);renderDraftTags();} kin.value=""; } else if(ev.key==="Backspace"&&kin.value===""){ draft.tags.pop(); renderDraftTags(); } };
+  document.getElementById("d-saved").classList.remove("show");
+  document.getElementById("scrim").classList.add("open");
+  document.getElementById("drawer").classList.add("open");
+  document.getElementById("drawer").setAttribute("aria-hidden","false");
 }
-
-// ═══════════════════════════════════════════════════════════════
-// Boot — render immediately. The app runs on localStorage and works
-// with no Firebase at all; if Firebase is configured it layers on sync.
-// ═══════════════════════════════════════════════════════════════
-function boot() {
-  var rootEl = document.getElementById("root");
-  if (!window.__vaultRoot) window.__vaultRoot = ReactDOM.createRoot(rootEl);
-  window.__vaultRoot.render(/*#__PURE__*/React.createElement(App, null));
+function renderDraftTags(){
+  const wrap=document.getElementById("d-kwwrap"); wrap.querySelectorAll(".tchip").forEach(n=>n.remove());
+  const input=document.getElementById("d-kwinput");
+  draft.tags.forEach((t,idx)=>{ const el=document.createElement("span"); el.className="tchip"; el.innerHTML=`${escapeHtml(t)} <button aria-label="remove">✕</button>`;
+    el.querySelector("button").onclick=(ev)=>{ ev.stopPropagation(); draft.tags.splice(idx,1); renderDraftTags(); }; wrap.insertBefore(el,input); });
 }
+async function saveEntry(){
+  if(!editing) return;
+  const d=filmData[editing.filmId]; const arr=d[editing.cat]; const i=arr.findIndex(x=>x.id===editing.id);
+  if(i>=0){ arr[i]={...arr[i],rating:draft.rating,note:draft.note,tags:draft.tags,favorite:draft.favorite}; }
+  await saveFilmData(editing.filmId);
+  document.getElementById("d-saved").classList.add("show");
+  setTimeout(()=>{ closeDrawer(); render(); },340);
+}
+async function deleteEntry(){
+  if(!editing) return;
+  const d=filmData[editing.filmId]; d[editing.cat]=d[editing.cat].filter(x=>x.id!==editing.id);
+  await saveFilmData(editing.filmId); closeDrawer(); render();
+}
+function closeDrawer(){ document.getElementById("scrim").classList.remove("open"); document.getElementById("drawer").classList.remove("open"); document.getElementById("drawer").setAttribute("aria-hidden","true"); editing=null; }
 
-// Render immediately on local storage — never wait on Firebase.
-boot();
-// If Firebase finishes loading later, re-render so the "Sign in to sync"
-// option and cloud features light up.
-window.addEventListener("vault-firebase-ready", boot);
+/* ===========================================================================
+   INLINE ACTIONS
+   =========================================================================== */
+async function setStar(filmId,cat,eid,n){
+  const d=filmData[filmId]; const e=d[cat].find(x=>x.id===eid); if(!e) return;
+  e.rating=e.rating===n?0:n; await saveFilmData(filmId); render();
+}
+async function toggleFav(filmId,cat,eid){
+  const d=filmData[filmId]; const e=d[cat].find(x=>x.id===eid); if(!e) return;
+  e.favorite=!e.favorite; await saveFilmData(filmId); render();
+}
+async function delEntry(filmId,cat,eid){
+  const d=filmData[filmId]; d[cat]=d[cat].filter(x=>x.id!==eid); await saveFilmData(filmId); render();
+}
+async function addEntry(filmId,cat,name){
+  name=name.trim(); if(!name) return;
+  const d=filmData[filmId];
+  d[cat].unshift({ id:`n-${Date.now()}-${Math.random().toString(36).slice(2,6)}`, name, rating:0, note:"", favorite:false, tags:[] });
+  await saveFilmData(filmId); render();
+}
+async function setFilmRating(filmId,n){
+  const d=filmData[filmId]; d.filmRating=(d.filmRating===n)?0:n; await saveFilmData(filmId); render();
+}
+async function toggleMood(filmId,m){
+  const d=filmData[filmId]; const sel=d.moodsSelected||(d.moodsSelected=[]);
+  const i=sel.indexOf(m); if(i>=0) sel.splice(i,1); else sel.push(m);
+  await saveFilmData(filmId); render();
+}
+async function addMood(filmId,m){
+  m=m.trim(); if(!m) return;
+  const d=filmData[filmId]; const custom=d.moodsCustom||(d.moodsCustom=[]); const sel=d.moodsSelected||(d.moodsSelected=[]);
+  const exists=[...SHARED_MOODS,...custom].some(p=>p.toLowerCase()===m.toLowerCase());
+  if(!exists) custom.push(m);
+  if(!sel.includes(m)) sel.push(m);
+  await saveFilmData(filmId); render();
+}
+async function clearMoods(filmId){ const d=filmData[filmId]; d.moodsSelected=[]; await saveFilmData(filmId); render(); }
 
-} // end startVault
+/* ===========================================================================
+   WIRE
+   =========================================================================== */
+function wire(){
+  // home
+  document.querySelectorAll(".card[data-film]").forEach(c=>c.onclick=()=>openFilm(c.dataset.film));
+  document.querySelectorAll(".pill[data-genre]").forEach(p=>p.onclick=()=>{ genreFilter=p.dataset.genre||null; render(); });
+  // film: category tabs
+  document.querySelectorAll(".tab[data-cat]").forEach(t=>t.onclick=()=>{ activeCat=t.dataset.cat; query=""; favOnly=false; render(); });
+  // film rating
+  document.querySelectorAll("[data-filmstar]").forEach(b=>b.onclick=()=>setFilmRating(view.id, parseInt(b.dataset.filmstar)));
+  // dashboard toggle
+  const dt=document.getElementById("dashToggle"); if(dt) dt.onclick=()=>{ showDash=!showDash; render(); };
+  // entries
+  document.querySelectorAll("[data-open]").forEach(el=>el.onclick=()=>openEntry(view.id, activeCat, el.dataset.open));
+  document.querySelectorAll("[data-star]").forEach(b=>b.onclick=(ev)=>{ ev.stopPropagation(); setStar(view.id, activeCat, b.dataset.eid, parseInt(b.dataset.star)); });
+  document.querySelectorAll("[data-fav]").forEach(b=>b.onclick=(ev)=>{ ev.stopPropagation(); toggleFav(view.id, activeCat, b.dataset.fav); });
+  document.querySelectorAll("[data-del]").forEach(b=>b.onclick=(ev)=>{ ev.stopPropagation(); delEntry(view.id, activeCat, b.dataset.del); });
+  const es=document.getElementById("entrySearch"); if(es) es.oninput=(e)=>{ query=e.target.value; const pos=e.target.selectionStart; render(); const n=document.getElementById("entrySearch"); if(n){n.focus();n.setSelectionRange(pos,pos);} };
+  const ft=document.getElementById("favToggle"); if(ft) ft.onclick=()=>{ favOnly=!favOnly; render(); };
+  const eab=document.getElementById("entryAddBtn"), eai=document.getElementById("entryAdd");
+  if(eab&&eai){ eab.onclick=()=>addEntry(view.id, activeCat, eai.value); eai.onkeydown=(e)=>{ if(e.key==="Enter") addEntry(view.id, activeCat, eai.value); }; }
+  // moods
+  document.querySelectorAll("[data-mood]").forEach(b=>b.onclick=()=>toggleMood(view.id, b.dataset.mood));
+  const mab=document.getElementById("moodAddBtn"), mai=document.getElementById("moodAdd");
+  if(mab&&mai){ mab.onclick=()=>addMood(view.id, mai.value); mai.onkeydown=(e)=>{ if(e.key==="Enter") addMood(view.id, mai.value); }; }
+  const mc=document.getElementById("moodClear"); if(mc) mc.onclick=()=>clearMoods(view.id);
+}
+document.addEventListener("keydown",e=>{ if(e.key==="Escape") closeDrawer(); });
 
-// ─── Wait until React + ReactDOM are actually available, then start. ───
-// (CDN scripts can load slowly or out of order; this avoids the
-//  "React is not defined" crash by polling until they exist.)
-(function waitForReact(tries) {
-  if (window.React && window.ReactDOM && window.ReactDOM.createRoot) {
-    try { startVault(); }
-    catch (e) {
-      console.error(e);
-      document.getElementById("root").innerHTML =
-        '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;color:#ff6b6b;font-family:system-ui;padding:30px;text-align:center">Something went wrong starting the app. Check the console.</div>';
-    }
-    return;
+/* ===== expose inline handlers ===== */
+Object.assign(window, { goHome, openFilm, saveEntry, deleteEntry, closeDrawer });
+
+/* ===========================================================================
+   AUTH GATE + STARTUP
+   =========================================================================== */
+const gate=document.getElementById("authgate");
+const chip=document.getElementById("userchip");
+const errEl=document.getElementById("autherr");
+let booted=false;
+
+document.getElementById("googleBtn").onclick=async()=>{
+  errEl.textContent="";
+  try{ await signInWithPopup(auth, provider); }
+  catch(e){ console.error(e); errEl.textContent=(e&&e.code==="auth/popup-blocked")?"Popup blocked — allow popups for this site and try again.":"Sign-in failed. Check the console for details."; }
+};
+function renderChip(user){
+  const photo=user.photoURL?`<img src="${user.photoURL}" alt="" referrerpolicy="no-referrer">`:"";
+  chip.innerHTML=`${photo}<button class="signout" id="signoutBtn">Sign out</button>`;
+  chip.style.display="flex";
+  document.getElementById("signoutBtn").onclick=()=>signOut(auth);
+}
+onAuthStateChanged(auth, async (user)=>{
+  if(user){
+    uid=user.uid; gate.classList.add("hide"); renderChip(user);
+    if(!booted){ booted=true; await boot(); }
+  } else {
+    uid=null; booted=false; filmData={}; chip.style.display="none"; gate.classList.remove("hide");
   }
-  if (tries > 100) { // ~10s
-    document.getElementById("root").innerHTML =
-      '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;color:#8a8a98;font-family:system-ui;padding:30px;text-align:center;line-height:1.6">Couldn\u2019t load React from the CDN.<br>Check your internet connection and reload.</div>';
-    return;
-  }
-  setTimeout(function () { waitForReact(tries + 1); }, 100);
-})(0);
+});
 </script>
 </body>
 </html>
