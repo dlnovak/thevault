@@ -288,6 +288,8 @@ async function sGet(key){ try{ const s=await getDoc(userDoc(key)); return s.exis
 async function sSet(key,value){ try{ await setDoc(userDoc(key),{k:key,v:value}); }catch(e){ console.error("sSet",key,e); } }
 async function sDel(key){ try{ await deleteDoc(userDoc(key)); }catch(e){ console.error("sDel",key,e); } }
 async function sList(prefix){ try{ const snap=await getDocs(userCol()); const out=[]; snap.forEach(d=>{ const k=d.data().k; if(k&&(!prefix||k.startsWith(prefix))) out.push(k); }); return out; }catch(e){ console.error("sList",prefix,e); return []; } }
+// Read the entire kv collection in ONE round-trip (key -> value map).
+async function sGetAll(prefix){ try{ const snap=await getDocs(userCol()); const out={}; snap.forEach(d=>{ const row=d.data(); if(row&&row.k&&(!prefix||row.k.startsWith(prefix))) out[row.k]=row.v; }); return out; }catch(e){ console.error("sGetAll",prefix,e); return {}; } }
 
 /* ===========================================================================
    FILM DATA
@@ -1359,9 +1361,19 @@ async function saveFilmData(filmId){ await sSet("v:film:"+filmId, filmData[filmI
    BOOT
    =========================================================================== */
 async function boot(){
-  // Pre-load every film's data (seeds on first run).
-  for(const id of Object.keys(FILMS)){ await loadFilmData(id); }
+  // Render home immediately — don't block on the network.
   render();
+  // ONE round-trip pulls every saved film doc at once.
+  const all = await sGetAll("v:film:");
+  const toSeed = [];
+  for(const id of Object.keys(FILMS)){
+    const saved = all["v:film:"+id];
+    if(saved){ filmData[id] = saved; }
+    else { const d = seedFilm(FILMS[id]); filmData[id] = d; toSeed.push([id,d]); }
+  }
+  render(); // counts/ratings now populated
+  // Seed any first-run films in parallel (writes don't block the UI).
+  if(toSeed.length){ await Promise.all(toSeed.map(([id,d])=>sSet("v:film:"+id, d))); }
 }
 
 function setTheme(t){ document.body.setAttribute("data-theme", t||"vault"); }
@@ -1370,7 +1382,7 @@ function setTheme(t){ document.body.setAttribute("data-theme", t||"vault"); }
    NAV
    =========================================================================== */
 function goHome(){ view={name:"home"}; genreFilter=null; setTheme("vault"); render(); }
-function openFilm(id){ view={name:"film",id}; activeCat="characters"; query=""; favOnly=false; showDash=false; setTheme(id); render(); }
+async function openFilm(id){ view={name:"film",id}; activeCat="characters"; query=""; favOnly=false; showDash=false; setTheme(id); await loadFilmData(id); render(); }
 
 function render(){
   const app=document.getElementById("app");
