@@ -159,6 +159,33 @@
   .btn.ghost:hover{color:var(--red);border-color:var(--red)}
   .saved-note{font-size:11px;color:var(--accent);opacity:0;transition:.2s}
   .saved-note.show{opacity:1}
+  /* ===== voice dictation mic ===== */
+  .fieldlabel-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .micbtn{display:inline-flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line);color:var(--mute);border-radius:999px;padding:5px 12px 5px 10px;cursor:pointer;font-family:inherit;font-size:11.5px;letter-spacing:.02em;transition:.14s;text-transform:none}
+  .micbtn:hover{border-color:var(--accent);color:var(--cream)}
+  .micbtn svg{width:14px;height:14px;flex:none}
+  .micbtn.listening{background:var(--red);border-color:var(--red);color:#fff}
+  .micbtn.listening .micdot{width:7px;height:7px;border-radius:50%;background:#fff;animation:micpulse 1s infinite}
+  @keyframes micpulse{0%,100%{opacity:1}50%{opacity:.3}}
+  .micbtn.unsupported{opacity:.4;cursor:not-allowed}
+  /* ===== cross-links (characters in a scene / scenes for a character) ===== */
+  .linkchips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:6px}
+  .linkchip{border:1px solid var(--line);background:var(--panel);color:var(--cream);border-radius:999px;padding:6px 12px;font-size:12.5px;cursor:pointer;font-family:inherit;transition:.13s}
+  .linkchip:hover{border-color:var(--accent-2)}
+  .linkchip.on{background:var(--accent-2);color:var(--accent-ink);border-color:var(--accent-2);font-weight:700}
+  .linknotes{display:flex;flex-direction:column;gap:10px;margin-top:4px}
+  .linknote{border:1px solid var(--line);background:rgba(0,0,0,.18);border-radius:12px;padding:11px 12px}
+  .linknote-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px}
+  .linknote-name{font-family:var(--font-display);font-size:15px;font-weight:600;color:var(--cream)}
+  .linknote-x{background:none;border:none;color:var(--mute);cursor:pointer;font-size:13px;line-height:1;padding:0}
+  .linknote-x:hover{color:var(--red)}
+  .linknote textarea{min-height:56px;font-size:13px;padding:9px 10px}
+  .linknote-mic{display:inline-flex;align-items:center;gap:5px;background:none;border:1px solid var(--line);color:var(--mute);border-radius:999px;padding:3px 9px 3px 8px;cursor:pointer;font-family:inherit;font-size:10.5px;transition:.14s}
+  .linknote-mic:hover{border-color:var(--accent);color:var(--cream)}
+  .linknote-mic.listening{background:var(--red);border-color:var(--red);color:#fff}
+  .linknote-mic svg{width:12px;height:12px}
+  .linknote-mic .micdot{width:6px;height:6px;border-radius:50%;background:#fff;animation:micpulse 1s infinite}
+  .link-empty{font-size:12px;color:var(--mute)}
   .bigstars{display:flex;gap:5px}
   .bigstar{background:none;border:none;cursor:pointer;padding:2px;line-height:0;font-size:30px;color:rgba(255,255,255,.18);transition:.12s}
   .bigstar.on{color:var(--accent)}
@@ -243,8 +270,17 @@
   <div class="dbody">
     <div class="fieldlabel">Your rating</div>
     <div class="bigstars" id="d-stars"></div>
-    <div class="fieldlabel">Why it lands / your take</div>
+    <div class="fieldlabel fieldlabel-row">
+      <span>Why it lands / your take</span>
+      <button class="micbtn" id="d-mic" type="button" data-target="d-note">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        <span class="miclabel">Speak</span>
+      </button>
+    </div>
     <textarea id="d-note" placeholder="What makes it work — a line, a moment, why it stuck with you."></textarea>
+    <div class="fieldlabel" id="d-links-label" style="display:none"></div>
+    <div class="linkchips" id="d-linkchips"></div>
+    <div class="linknotes" id="d-linknotes"></div>
     <div class="fieldlabel">Tags <span style="text-transform:none;letter-spacing:0">(type + Enter)</span></div>
     <div class="kwwrap" id="d-kwwrap" onclick="document.getElementById('d-kwinput').focus()">
       <input id="d-kwinput" placeholder="a theme, a vibe, a callback…" autocomplete="off">
@@ -1467,6 +1503,8 @@ function renderEntries(id, cat){
     const stars=[1,2,3,4,5].map(n=>`<button class="star ${e.rating>=n?'on':''}" data-star="${n}" data-eid="${e.id}">★</button>`).join("");
     const tags=(e.tags||[]).map(t=>`<span class="tchip">${escapeHtml(t)}</span>`).join("");
     const notePrev=e.note?`<div class="entry-note-preview">${escapeHtml(e.note)}</div>`:'';
+    const linkN=e.links?Object.keys(e.links).length:0;
+    const linkBadge=linkN?`<div class="entry-note-preview" style="color:var(--accent-2)">🔗 ${linkN} ${cat==='scenes'?'character'+(linkN>1?'s':''):'scene'+(linkN>1?'s':'')} tagged</div>`:'';
     return `<div class="entry ${e.favorite?'fav':''}" data-eid="${e.id}">
       <div class="entry-top">
         <div class="entry-name" data-open="${e.id}">${escapeHtml(e.name)}</div>
@@ -1477,6 +1515,7 @@ function renderEntries(id, cat){
       </div>
       <div class="stars">${stars}</div>
       ${notePrev}
+      ${linkBadge}
       ${tags?`<div class="tagchips">${tags}</div>`:''}
     </div>`;
   }).join("");
@@ -1555,10 +1594,14 @@ function openEntry(filmId, cat, eid){
   sc.querySelectorAll(".bigstar").forEach(b=>b.onclick=()=>{ const n=parseInt(b.dataset.dstar); draft.rating=draft.rating===n?0:n; sc.querySelectorAll(".bigstar").forEach((x,i)=>x.classList.toggle("on",draft.rating>=i+1)); });
   // note
   const ta=document.getElementById("d-note"); ta.value=draft.note||""; ta.oninput=(ev)=>draft.note=ev.target.value;
+  // voice dictation: append speech into the notes field and keep draft in sync
+  wireDictation("d-mic", "d-note", (val)=>{ draft.note = val; });
   // tags
   renderDraftTags();
   const kin=document.getElementById("d-kwinput"); kin.value="";
   kin.onkeydown=(ev)=>{ if(ev.key==="Enter"||ev.key===","){ ev.preventDefault(); const v=kin.value.trim().replace(/,$/,""); if(v&&!draft.tags.includes(v)){draft.tags.push(v);renderDraftTags();} kin.value=""; } else if(ev.key==="Backspace"&&kin.value===""){ draft.tags.pop(); renderDraftTags(); } };
+  // cross-links: characters (if this is a scene) or scenes (if this is a character)
+  renderLinks(filmId, cat);
   document.getElementById("d-saved").classList.remove("show");
   document.getElementById("scrim").classList.add("open");
   document.getElementById("drawer").classList.add("open");
@@ -1570,20 +1613,187 @@ function renderDraftTags(){
   draft.tags.forEach((t,idx)=>{ const el=document.createElement("span"); el.className="tchip"; el.innerHTML=`${escapeHtml(t)} <button aria-label="remove">✕</button>`;
     el.querySelector("button").onclick=(ev)=>{ ev.stopPropagation(); draft.tags.splice(idx,1); renderDraftTags(); }; wrap.insertBefore(el,input); });
 }
+
+// ---- cross-links: tag characters inside a scene (or scenes inside a character), each with its own note ----
+function otherCat(cat){ return cat==="scenes" ? "characters" : "scenes"; }
+function renderLinks(filmId, cat){
+  const label=document.getElementById("d-links-label");
+  const chipsWrap=document.getElementById("d-linkchips");
+  const notesWrap=document.getElementById("d-linknotes");
+  // only scenes<->characters link; moods handled elsewhere
+  if(cat!=="scenes" && cat!=="characters"){ label.style.display="none"; chipsWrap.innerHTML=""; notesWrap.innerHTML=""; return; }
+  const oc=otherCat(cat);
+  const d=filmData[filmId];
+  const others=(d[oc]||[]);
+  if(!draft.links) draft.links={};
+  label.style.display="";
+  label.innerHTML = cat==="scenes"
+    ? 'Characters in this scene <span style="text-transform:none;letter-spacing:0">(tap to tag, then note what they did)</span>'
+    : 'Scenes for this character <span style="text-transform:none;letter-spacing:0">(tap to tag, then note their moment)</span>';
+  if(!others.length){ chipsWrap.innerHTML=`<span class="link-empty">No ${oc} yet — add some on the ${oc} tab first.</span>`; notesWrap.innerHTML=""; return; }
+  // chips
+  chipsWrap.innerHTML=others.map(o=>`<button class="linkchip ${draft.links[o.id]!==undefined?'on':''}" data-link="${o.id}">${escapeHtml(o.name)}</button>`).join("");
+  chipsWrap.querySelectorAll(".linkchip").forEach(b=>b.onclick=()=>{
+    const id=b.dataset.link;
+    if(draft.links[id]!==undefined) delete draft.links[id];   // untag
+    else draft.links[id]="";                                   // tag with empty note
+    renderLinkNotes(filmId, cat);
+    b.classList.toggle("on", draft.links[id]!==undefined);
+  });
+  renderLinkNotes(filmId, cat);
+}
+function renderLinkNotes(filmId, cat){
+  const notesWrap=document.getElementById("d-linknotes");
+  const oc=otherCat(cat);
+  const d=filmData[filmId];
+  const nameOf=(id)=>{ const o=(d[oc]||[]).find(x=>x.id===id); return o?o.name:"(removed)"; };
+  const ids=Object.keys(draft.links||{});
+  if(!ids.length){ notesWrap.innerHTML=""; return; }
+  notesWrap.innerHTML=ids.map(id=>{
+    const taId="lnote-"+id, micId="lmic-"+id;
+    return `<div class="linknote">
+      <div class="linknote-head">
+        <span class="linknote-name">${escapeHtml(nameOf(id))}</span>
+        <span style="display:flex;gap:8px;align-items:center">
+          <button class="linknote-mic" id="${micId}" type="button" title="Dictate this note">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>Speak
+          </button>
+          <button class="linknote-x" data-unlink="${id}" title="Remove">✕</button>
+        </span>
+      </div>
+      <textarea id="${taId}" placeholder="What ${cat==='scenes'?'they did in this scene':'happens in this scene'}…">${escapeHtml(draft.links[id]||"")}</textarea>
+    </div>`;
+  }).join("");
+  // wire note textareas
+  ids.forEach(id=>{
+    const ta=document.getElementById("lnote-"+id);
+    if(ta) ta.oninput=(ev)=>{ draft.links[id]=ev.target.value; };
+    wireDictation("lmic-"+id, "lnote-"+id, (val)=>{ draft.links[id]=val; });
+  });
+  // wire unlink buttons
+  notesWrap.querySelectorAll("[data-unlink]").forEach(b=>b.onclick=()=>{
+    const id=b.dataset.unlink; delete draft.links[id];
+    renderLinks(filmId, cat); // full refresh so the chip de-highlights too
+  });
+}
 async function saveEntry(){
   if(!editing) return;
   const d=filmData[editing.filmId]; const arr=d[editing.cat]; const i=arr.findIndex(x=>x.id===editing.id);
-  if(i>=0){ arr[i]={...arr[i],rating:draft.rating,note:draft.note,tags:draft.tags,favorite:draft.favorite}; }
+  if(i>=0){ arr[i]={...arr[i],rating:draft.rating,note:draft.note,tags:draft.tags,favorite:draft.favorite,links:draft.links||{}}; }
+  // Mirror the tag onto the other side so a scene tagged on a character also
+  // shows up when you open that scene (note text stays per-side).
+  syncReciprocalLinks(editing.filmId, editing.cat, editing.id, draft.links||{});
   await saveFilmData(editing.filmId);
   document.getElementById("d-saved").classList.add("show");
   setTimeout(()=>{ closeDrawer(); render(); },340);
+}
+// Ensure the other entry lists this one back (membership only; each side keeps its own note).
+function syncReciprocalLinks(filmId, cat, myId, links){
+  const d=filmData[filmId]; const oc=otherCat(cat);
+  const others=d[oc]||[];
+  const linkedIds=new Set(Object.keys(links));
+  others.forEach(o=>{
+    if(!o.links) o.links={};
+    if(linkedIds.has(o.id)){
+      if(o.links[myId]===undefined) o.links[myId]="";   // add back-link, empty note
+    } else {
+      if(o.links[myId]!==undefined) delete o.links[myId]; // removed here -> remove there
+    }
+  });
 }
 async function deleteEntry(){
   if(!editing) return;
   const d=filmData[editing.filmId]; d[editing.cat]=d[editing.cat].filter(x=>x.id!==editing.id);
   await saveFilmData(editing.filmId); closeDrawer(); render();
 }
-function closeDrawer(){ document.getElementById("scrim").classList.remove("open"); document.getElementById("drawer").classList.remove("open"); document.getElementById("drawer").setAttribute("aria-hidden","true"); editing=null; }
+/* ===========================================================================
+   VOICE DICTATION  (continuous — stops only when YOU tap stop)
+   =========================================================================== */
+const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+let dictation = null; // { rec, btn, ta, active }
+const MIC_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>';
+const STOP_ICON = '<span class="micdot"></span>';
+
+function stopDictation(){
+  if(!dictation) return;
+  const { rec, btn } = dictation;
+  dictation.active = false;          // signal: do NOT auto-restart
+  try{ rec.stop(); }catch(e){}
+  if(btn){
+    btn.classList.remove("listening");
+    btn.innerHTML = MIC_ICON + '<span class="miclabel">Speak</span>';
+  }
+  dictation = null;
+}
+
+function startDictation(btn, ta, onText){
+  if(!SpeechRec){ return; }
+  // If already listening (this or another field), stop first.
+  stopDictation();
+  const rec = new SpeechRec();
+  rec.continuous = true;
+  rec.interimResults = true;
+  rec.lang = "en-US";
+  dictation = { rec, btn, ta, active:true };
+
+  // ensure text ends with a space before we append dictation
+  const needsSpace = ()=> ta.value.length && !/\s$/.test(ta.value);
+
+  rec.onresult = (ev)=>{
+    let finalChunk = "";
+    for(let i=ev.resultIndex; i<ev.results.length; i++){
+      const res = ev.results[i];
+      if(res.isFinal) finalChunk += res[0].transcript;
+    }
+    if(finalChunk){
+      let add = finalChunk.replace(/\s+/g," ").trim();
+      if(add){
+        ta.value = (ta.value + (needsSpace()?" ":"") + add).replace(/\s{2,}/g," ");
+        if(onText) onText(ta.value);
+      }
+    }
+  };
+
+  // The API stops itself on silence; if the user hasn't tapped stop, restart it.
+  rec.onend = ()=>{
+    if(dictation && dictation.active){
+      try{ rec.start(); }catch(e){ /* start can throw if called too fast; ignore */ }
+    }
+  };
+  rec.onerror = (e)=>{
+    // 'no-speech' / 'aborted' are normal; keep going unless it's fatal or user stopped
+    if(e.error==="not-allowed" || e.error==="service-not-allowed"){
+      alert("Microphone access was blocked. Allow mic permission for this site to use voice notes.");
+      stopDictation();
+    }
+  };
+
+  try{ rec.start(); }
+  catch(e){ dictation=null; return; }
+
+  btn.classList.add("listening");
+  btn.innerHTML = STOP_ICON + '<span class="miclabel">Stop</span>';
+}
+
+// Attach a mic button to a textarea. onText is called with updated value.
+function wireDictation(btnId, taId, onText){
+  const btn = document.getElementById(btnId);
+  const ta = document.getElementById(taId);
+  if(!btn || !ta) return;
+  if(!SpeechRec){
+    btn.classList.add("unsupported");
+    btn.title = "Voice input isn't supported in this browser (try Chrome).";
+    btn.onclick = ()=> alert("Voice dictation isn't supported in this browser. Chrome or Edge on desktop, or Chrome on Android, work best.");
+    return;
+  }
+  btn.onclick = ()=>{
+    // toggle: if THIS field is listening, stop; otherwise start on this field
+    if(dictation && dictation.ta === ta){ stopDictation(); }
+    else { startDictation(btn, ta, onText); }
+  };
+}
+
+function closeDrawer(){ stopDictation(); document.getElementById("scrim").classList.remove("open"); document.getElementById("drawer").classList.remove("open"); document.getElementById("drawer").setAttribute("aria-hidden","true"); editing=null; }
 
 /* ===========================================================================
    INLINE ACTIONS
